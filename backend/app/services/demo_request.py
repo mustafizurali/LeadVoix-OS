@@ -1,9 +1,10 @@
+import os
+import resend
+
 from sqlalchemy.orm import Session
 
 from backend.app.models.demo_request import DemoRequest
-from backend.app.schemas.demo_request import (
-    DemoRequestCreate,
-)
+from backend.app.schemas.demo_request import DemoRequestCreate
 
 
 def create_demo_request(
@@ -22,6 +23,44 @@ def create_demo_request(
     db.add(db_demo_request)
     db.commit()
     db.refresh(db_demo_request)
+
+    # Send admin notification email
+    try:
+        resend.api_key = os.getenv("RESEND_API_KEY")
+
+        admin_email = os.getenv("ADMIN_EMAIL")
+        from_email = os.getenv(
+            "RESEND_FROM_EMAIL",
+            "hello@leadvoix.com",
+        )
+
+        resend.Emails.send(
+            {
+                "from": from_email,
+                "to": [admin_email],
+                "subject": "New Demo Request - LeadVoix AI",
+                "html": f"""
+                    <h2>New Demo Request</h2>
+
+                    <p><strong>Name:</strong> {demo_request.name}</p>
+                    <p><strong>Email:</strong> {demo_request.email}</p>
+                    <p><strong>Company:</strong> {demo_request.company}</p>
+                    <p><strong>Phone:</strong> {demo_request.phone or "Not provided"}</p>
+                    <p><strong>Message:</strong> {demo_request.message or "No message"}</p>
+
+                    <hr>
+
+                    <p>
+                        This demo request was submitted from
+                        <strong>LeadVoix AI</strong>.
+                    </p>
+                """,
+            }
+        )
+
+    except Exception as error:
+        # Email failure must not break demo request submission
+        print(f"Demo request email notification failed: {error}")
 
     return db_demo_request
 
