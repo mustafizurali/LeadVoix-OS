@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.db.database import get_db
 from backend.app.models.demo_request import DemoRequest
+from backend.app.models.user import User
 from backend.app.schemas.demo_request import (
     DemoRequestCreate,
     DemoRequestResponse,
@@ -14,6 +15,7 @@ from backend.app.services.demo_request import (
     get_demo_requests,
     update_demo_request_status,
 )
+from backend.app.utils.dependencies import get_current_admin_user
 
 
 router = APIRouter(
@@ -43,6 +45,7 @@ def submit_demo_request(
 )
 def list_demo_requests(
     db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user),
 ):
     return get_demo_requests(db=db)
 
@@ -55,6 +58,7 @@ def update_status(
     demo_request_id: int,
     new_status: str,
     db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user),
 ):
     demo_request = (
         db.query(DemoRequest)
