@@ -1,6 +1,6 @@
 import os
-import resend
 
+import resend
 from sqlalchemy.orm import Session
 
 from backend.app.models.demo_request import DemoRequest
@@ -26,13 +26,20 @@ def create_demo_request(
 
     # Send admin notification email
     try:
-        resend.api_key = os.getenv("RESEND_API_KEY")
+        resend_api_key = os.getenv("RESEND_API_KEY", "").strip()
 
-        admin_email = os.getenv("ADMIN_EMAIL")
+        # Remove Bearer prefix if accidentally included in Render
+        if resend_api_key.lower().startswith("bearer "):
+            resend_api_key = resend_api_key[7:].strip()
+
+        resend.api_key = resend_api_key
+
+        admin_email = os.getenv("ADMIN_EMAIL", "").strip()
+
         from_email = os.getenv(
             "RESEND_FROM_EMAIL",
             "hello@leadvoix.com",
-        )
+        ).strip()
 
         resend.Emails.send(
             {
@@ -57,6 +64,8 @@ def create_demo_request(
                 """,
             }
         )
+
+        print("Demo request email notification sent successfully.")
 
     except Exception as error:
         # Email failure must not break demo request submission
