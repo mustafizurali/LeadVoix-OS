@@ -4,6 +4,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+import os
 
 from backend.app.core.config import settings
 from backend.app.db.database import get_db
@@ -68,7 +69,12 @@ def get_current_user(
 def get_current_admin_user(
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role != "admin":
+    admin_email = os.getenv("ADMIN_EMAIL", "").strip().lower()
+
+    if (
+        current_user.role != "admin"
+        and current_user.email.lower() != admin_email
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
