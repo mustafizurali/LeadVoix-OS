@@ -41,6 +41,10 @@ const menuItems = [
     href: "/agent-calls",
   },
   {
+   title: "Demo Requests",
+   href: "/demo-requests",
+  },
+  {
     title: "Settings",
     href: "/settings",
   },
