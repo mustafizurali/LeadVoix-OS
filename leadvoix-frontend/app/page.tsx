@@ -1018,19 +1018,34 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div>
-              <h3 className="text-xs font-bold text-white">Company</h3>
-              <div className="mt-4 space-y-3 text-xs text-slate-600">
-                <a className="block hover:text-white" href="#contact">
-                  Contact
-                </a>
-                <a className="block hover:text-white" href="#pricing">
-                  Pricing
-                </a>
-                <Link className="block hover:text-white" href="/login">
-                  Login
-                </Link>
-              </div>
+            <div className="mt-4 space-y-3 text-xs text-slate-600">
+             <a className="block hover:text-white" href="#contact">
+             Contact
+             </a>
+
+             <a className="block hover:text-white" href="#pricing">
+              Pricing
+             </a>
+
+             <Link className="block hover:text-white" href="/login">
+             Login
+             </Link>
+
+             <Link className="block hover:text-white" href="/privacy">
+              Privacy Policy
+             </Link>
+
+             <Link className="block hover:text-white" href="/terms">
+              Terms & Conditions
+             </Link>
+
+             <Link className="block hover:text-white" href="/refund">
+             Refund & Cancellation
+             </Link>
+
+             <Link className="block hover:text-white" href="/voice-disclosure">
+             AI Voice & Call Disclosure
+             </Link>
             </div>
           </div>
 
