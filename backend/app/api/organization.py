@@ -20,7 +20,7 @@ router = APIRouter(
     "/",
     response_model=OrganizationResponse,
 )
-def create_company(
+def create_organization(
     organization: OrganizationCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

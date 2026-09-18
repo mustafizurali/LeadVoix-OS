@@ -1,10 +1,10 @@
 import logging
+import os
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
-import os
 
 from backend.app.core.config import settings
 from backend.app.db.database import get_db
@@ -39,12 +39,15 @@ def get_current_user(
 
         email = payload.get("sub")
 
-        if email is None:
+        # JWT subject must exist and be a non-empty string
+        if not isinstance(email, str) or not email.strip():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+
+        email = email.strip().lower()
 
     except JWTError:
         logger.warning("JWT validation failed")
@@ -55,7 +58,11 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = db.query(User).filter(User.email == email).first()
+    user = (
+        db.query(User)
+        .filter(User.email == email)
+        .first()
+    )
 
     if user is None:
         raise HTTPException(
@@ -66,6 +73,7 @@ def get_current_user(
 
     return user
 
+
 def get_current_admin_user(
     current_user: User = Depends(get_current_user),
 ):
@@ -73,7 +81,10 @@ def get_current_admin_user(
 
     if (
         current_user.role != "admin"
-        and current_user.email.lower() != admin_email
+        and (
+            not admin_email
+            or current_user.email.lower() != admin_email
+        )
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
