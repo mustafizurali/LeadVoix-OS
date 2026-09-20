@@ -55,11 +55,17 @@ class Organization(Base):
     )
 
     agent_calls = relationship(
-    "AgentCall",
-    back_populates="organization",
+        "AgentCall",
+        back_populates="organization",
     )
 
     tasks = relationship(
-    "Task",
-    back_populates="organization",
+      "Task",
+      back_populates="organization",
+    )
+
+    subscriptions = relationship(
+      "Subscription",
+      back_populates="organization",
+      cascade="all, delete-orphan",
     )

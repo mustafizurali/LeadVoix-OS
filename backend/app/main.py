@@ -10,7 +10,7 @@ from backend.app.api.pipeline import router as pipeline_router
 from backend.app.api.deal import router as deal_router
 from backend.app.api.task import router as task_router
 from backend.app.api.dashboard import router as dashboard_router
-
+from backend.app.api.subscription import router as subscription_router
 from backend.app.api import agent
 from backend.app.api import agent_knowledge
 from backend.app.api import agent_call
@@ -20,6 +20,7 @@ from backend.app.api import agent_call_analysis
 from backend.app.api import agent_call_intelligence
 from backend.app.api import follow_up_task
 from backend.app.api import demo_request
+
 
 
 app = FastAPI(title="LeadVoix OS API")
@@ -63,6 +64,7 @@ app.include_router(lead_router)
 app.include_router(company_router)
 app.include_router(deal_router)
 app.include_router(dashboard_router)
+app.include_router(subscription_router)
 
 
 # AI Voice Agent routers

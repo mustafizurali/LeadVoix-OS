@@ -129,11 +129,22 @@ def create_deal(
                 detail="Owner not found",
             )
 
+    # Set Deal status based on stage type
+    deal_status = deal.status
+
+    if deal.stage_id:
+        if stage.stage_type == "WON":
+            deal_status = "WON"
+        elif stage.stage_type == "LOST":
+            deal_status = "LOST"
+        else:
+            deal_status = "OPEN"
+
     db_deal = Deal(
         title=deal.title,
         amount=deal.amount,
         currency=deal.currency,
-        status=deal.status,
+        status=deal_status,
         expected_close_date=deal.expected_close_date,
         description=deal.description,
         organization_id=current_user.organization_id,
@@ -426,12 +437,20 @@ def update_deal(
             )
             .first()
         )
-
         if not owner:
-            raise HTTPException(
-                status_code=404,
-                detail="Owner not found",
-            )
+         raise HTTPException(
+         status_code=404,
+         detail="Owner not found",
+        )
+
+    # Set Deal status based on stage type
+    if "stage_id" in update_data and update_data["stage_id"] is not None:
+        if stage.stage_type == "WON":
+            update_data["status"] = "WON"
+        elif stage.stage_type == "LOST":
+            update_data["status"] = "LOST"
+        else:
+            update_data["status"] = "OPEN"
 
     for key, value in update_data.items():
         setattr(db_deal, key, value)
