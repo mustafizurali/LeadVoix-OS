@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuthStore } from "@/modules/auth/store/authStore";
 
 const menuItems = [
   {
@@ -52,6 +53,7 @@ const menuItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const user = useAuthStore((state) => state.user);
 
   return (
     <aside className="w-64 bg-slate-900 text-white flex flex-col">
@@ -66,7 +68,12 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 p-4 space-y-2">
-        {menuItems.map((item) => {
+        {menuItems
+  .filter(
+    (item) =>
+      item.href !== "/demo-requests" || user?.role === "admin"
+  )
+  .map((item) => {
           const active = pathname === item.href;
 
           return (

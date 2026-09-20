@@ -13,6 +13,10 @@ export const useLogin = () => {
     (state) => state.setAccessToken
   );
 
+  const setUser = useAuthStore(
+    (state) => state.setUser
+  );
+
   return useMutation({
     mutationFn: login,
 
@@ -21,11 +25,26 @@ export const useLogin = () => {
 
       setAccessToken(data.access_token);
 
+      try {
+        const payload = JSON.parse(
+          atob(data.access_token.split(".")[1])
+        );
+
+        setUser({
+          id: payload.user_id,
+          name: payload.sub,
+          email: payload.sub,
+          role: payload.role,
+        });
+      } catch (error) {
+        console.error("Failed to decode access token", error);
+      }
+
       router.replace("/dashboard");
     },
 
     onError: (error) => {
-     console.error(error);
-    }
+      console.error(error);
+    },
   });
 };
