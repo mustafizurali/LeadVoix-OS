@@ -8,6 +8,8 @@ interface DealTableProps {
   isError: boolean;
   onEdit: (deal: Deal) => void;
   onDelete: (deal: Deal) => void;
+  pipelineNames?: Record<number, string>;
+  stageNames?: Record<number, string>;
 }
 
 export default function DealTable({
@@ -16,6 +18,8 @@ export default function DealTable({
   isError,
   onEdit,
   onDelete,
+  pipelineNames = {},
+  stageNames = {},
 }: DealTableProps) {
   if (isLoading) {
     return <div>Loading deals...</div>;
@@ -66,11 +70,15 @@ export default function DealTable({
               </td>
 
               <td className="p-3">
-                {deal.pipeline_id ?? "-"}
+                {deal.pipeline_id
+                  ? pipelineNames[deal.pipeline_id] ?? deal.pipeline_id
+                  : "-"}
               </td>
 
               <td className="p-3">
-                {deal.stage_id ?? "-"}
+                {deal.stage_id
+                  ? stageNames[deal.stage_id] ?? deal.stage_id
+                  : "-"}
               </td>
 
               <td className="p-3">

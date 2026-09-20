@@ -10,6 +10,7 @@ import { deleteDeal } from "@/modules/deals/api/dealApi";
 import { useDeals } from "@/modules/deals/hooks/useDeals";
 import { Deal } from "@/modules/deals/types/deal.types";
 import { usePipelines } from "@/modules/pipelines/hooks/usePipelines";
+import { usePipelineStages } from "@/modules/pipelines/hooks/usePipelineStages";
 
 export default function DealsPage() {
   const queryClient = useQueryClient();
@@ -19,7 +20,9 @@ export default function DealsPage() {
   const [status, setStatus] = useState("");
   const [pipelineId, setPipelineId] = useState("");
   const [page, setPage] = useState(1);
+
   const { data: pipelinesData } = usePipelines();
+
   const filters = {
     page,
     limit: 10,
@@ -27,7 +30,26 @@ export default function DealsPage() {
     status,
     pipeline_id: pipelineId ? Number(pipelineId) : undefined,
   };
+
   const { data, isLoading, isError } = useDeals(filters);
+
+  const selectedPipelineId = data?.items?.[0]?.pipeline_id ?? 0;
+
+  const { data: stagesData } = usePipelineStages(selectedPipelineId);
+
+  const pipelineNames = Object.fromEntries(
+    (pipelinesData?.items ?? []).map((pipeline) => [
+      pipeline.id,
+      pipeline.name,
+    ])
+  );
+
+  const stageNames = Object.fromEntries(
+    (stagesData ?? []).map((stage) => [
+      stage.id,
+      stage.name,
+    ])
+  );
 
   const handleDealSuccess = () => {
     setShowForm(false);
@@ -41,7 +63,9 @@ export default function DealsPage() {
   };
 
   const handleDelete = async (deal: Deal) => {
-    const confirmed = window.confirm(`Are you sure you want to delete "${deal.title}"?`);
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${deal.title}"?`
+    );
 
     if (!confirmed) {
       return;
@@ -62,7 +86,9 @@ export default function DealsPage() {
         <div className="flex items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">Deals</h1>
-            <p className="mt-2 text-slate-500">Manage all your deals.</p>
+            <p className="mt-2 text-slate-500">
+              Manage all your deals.
+            </p>
           </div>
 
           <button
@@ -112,6 +138,7 @@ export default function DealsPage() {
             className="rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           >
             <option value="">All Pipelines</option>
+
             {pipelinesData?.items.map((pipeline) => (
               <option key={pipeline.id} value={pipeline.id}>
                 {pipeline.name}
@@ -125,6 +152,7 @@ export default function DealsPage() {
             <h2 className="mb-5 text-xl font-semibold">
               {selectedDeal ? "Edit Deal" : "Create Deal"}
             </h2>
+
             <DealForm
               key={selectedDeal?.id ?? "create"}
               deal={selectedDeal}
@@ -139,6 +167,8 @@ export default function DealsPage() {
           isError={isError}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          pipelineNames={pipelineNames}
+          stageNames={stageNames}
         />
 
         <div className="flex items-center justify-between">
@@ -155,6 +185,7 @@ export default function DealsPage() {
             >
               Previous
             </button>
+
             <button
               type="button"
               onClick={() => setPage((current) => current + 1)}
