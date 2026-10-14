@@ -8,7 +8,9 @@ import {
 
 import {
   analyzeAgentCall,
+  createAgentCall,
   getAgentCalls,
+  initiateAgentCall,
 } from "../api/agentCallApi";
 
 import {
@@ -29,6 +31,9 @@ export default function AgentCallList({
   const [intelligence, setIntelligence] =
     useState<AgentCallIntelligence | null>(null);
 
+    const [phoneNumber, setPhoneNumber] = useState("");
+    const [callError, setCallError] = useState<string | null>(null);
+    const [callSuccess, setCallSuccess] = useState<string | null>(null);
   /*
    * Store analyzed intelligence by call ID.
    * Backend currently does not provide a GET intelligence endpoint.
@@ -43,12 +48,71 @@ export default function AgentCallList({
     data: calls,
     isLoading,
     isError,
+    refetch,
   } = useQuery({
     queryKey: ["agent-calls", agentId],
     queryFn: () => getAgentCalls(agentId),
     enabled: !!agentId,
   });
 
+  /*
+ * MAKE AI CALL
+ */
+const makeCallMutation = useMutation({
+  mutationFn: async (toNumber: string) => {
+    // Create the call record first
+    const agentCall = await createAgentCall(agentId, {
+      caller_phone: toNumber,
+      direction: "outbound",
+    });
+
+    // Then initiate the real Twilio call
+    const initiatedCall = await initiateAgentCall(
+      agentId,
+      agentCall.id,
+      toNumber
+    );
+
+    return initiatedCall;
+  },
+
+  onSuccess: async () => {
+    setPhoneNumber("");
+    setCallError(null);
+    setCallSuccess(
+      "Call initiated successfully. The phone should ring shortly."
+    );
+
+    await refetch();
+  },
+
+  onError: (error: any) => {
+  console.error("Failed to initiate AI call:", error);
+
+  console.error(
+    "Backend error:",
+    error?.response?.data
+  );
+
+  setCallSuccess(null);
+
+  const detail = error?.response?.data?.detail;
+
+  if (Array.isArray(detail)) {
+    setCallError(
+      detail
+        .map((item: any) => item?.msg || "Validation error")
+        .join(", ")
+    );
+  } else if (typeof detail === "string") {
+    setCallError(detail);
+  } else {
+    setCallError(
+      "Failed to start the call. Please check the backend logs."
+    );
+  }
+},
+});
   /*
    * ANALYZE CALL
    */
@@ -86,6 +150,30 @@ export default function AgentCallList({
     analyzeMutation.reset();
   };
 
+  /*
+ * HANDLE MAKE AI CALL
+ */
+const handleMakeCall = () => {
+  const number = phoneNumber.trim();
+
+  setCallError(null);
+  setCallSuccess(null);
+
+  if (!number) {
+    setCallError("Please enter a phone number.");
+    return;
+  }
+
+  // Basic E.164-style validation
+  if (!/^\+?[1-9]\d{7,14}$/.test(number)) {
+    setCallError(
+      "Please enter a valid phone number with country code, for example +919876543210."
+    );
+    return;
+  }
+
+  makeCallMutation.mutate(number);
+};
   /*
    * ANALYZE SELECTED CALL
    */
@@ -130,22 +218,79 @@ export default function AgentCallList({
       </div>
     );
   }
-
-  /*
-   * EMPTY STATE
-   */
-  if (!calls || calls.length === 0) {
-    return (
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <p className="text-sm text-slate-500">
-          No calls found.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <>
+
+ {/* MAKE AI CALL */}
+<div className="mb-6 rounded-xl border border-blue-100 bg-blue-50 p-6 shadow-sm">
+  <div>
+    <h2 className="text-lg font-semibold text-slate-900">
+      Make AI Call
+    </h2>
+
+    <p className="mt-1 text-sm text-slate-600">
+      Enter a customer phone number and let your LeadVoix AI
+      voice agent make the call.
+    </p>
+  </div>
+
+  <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-end">
+    <div className="flex-1">
+      <label
+        htmlFor="ai-call-phone"
+        className="mb-2 block text-sm font-medium text-slate-700"
+      >
+        Customer Phone Number
+      </label>
+
+      <input
+        id="ai-call-phone"
+        type="tel"
+        value={phoneNumber}
+        onChange={(event) => {
+          setPhoneNumber(event.target.value);
+          setCallError(null);
+          setCallSuccess(null);
+        }}
+        placeholder="+919876543210"
+        disabled={makeCallMutation.isPending}
+        className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+      />
+    </div>
+
+    <button
+      type="button"
+      onClick={handleMakeCall}
+      disabled={makeCallMutation.isPending}
+      className="rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {makeCallMutation.isPending
+        ? "Calling..."
+        : "Call with LeadVoix AI"}
+    </button>
+  </div>
+
+  <p className="mt-3 text-xs text-slate-500">
+    Enter the phone number with country code, for example
+    +919876543210.
+  </p>
+
+  {callError && (
+    <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
+      <p className="text-sm text-red-600">
+        {callError}
+      </p>
+    </div>
+  )}
+
+  {callSuccess && (
+    <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3">
+      <p className="text-sm text-green-700">
+        {callSuccess}
+      </p>
+    </div>
+  )}
+</div>
       {/* CALL LIST */}
 
       <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
@@ -164,7 +309,7 @@ export default function AgentCallList({
         {/* CALLS */}
 
         <div className="divide-y">
-          {calls.map((call) => (
+          {(calls ?? []).map((call) => (
             <div
               key={call.id}
               className="px-6 py-5 transition hover:bg-slate-50"

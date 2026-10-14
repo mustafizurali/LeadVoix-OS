@@ -20,6 +20,7 @@ from backend.app.api import agent_call_analysis
 from backend.app.api import agent_call_intelligence
 from backend.app.api import follow_up_task
 from backend.app.api import demo_request
+from backend.app.api import voice
 
 
 
@@ -76,6 +77,7 @@ app.include_router(agent_call_summary.router)
 app.include_router(agent_call_analysis.router)
 app.include_router(agent_call_intelligence.router)
 app.include_router(follow_up_task.router)
+app.include_router(voice.router)
 
 
 # Demo Request

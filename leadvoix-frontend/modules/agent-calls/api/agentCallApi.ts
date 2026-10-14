@@ -2,6 +2,7 @@ import api from "@/lib/api/axios";
 
 import {
   AgentCall,
+  AgentCallCreate,
   AgentCallListResponse,
   AgentCallIntelligence,
 } from "../types/agentCall.types";
@@ -14,6 +15,43 @@ export const getAgentCalls = async (
 ): Promise<AgentCallListResponse> => {
   const response = await api.get(
     `/agents/${agentId}/calls`
+  );
+
+  return response.data;
+};
+
+/**
+ * Create a new agent call
+ */
+export const createAgentCall = async (
+  agentId: number,
+  data: AgentCallCreate
+): Promise<AgentCall> => {
+  const response = await api.post(
+    `/agents/${agentId}/calls`,
+    data
+  );
+
+  return response.data;
+
+};
+
+/**
+ * Initiate an agent call through the voice provider
+ */
+export const initiateAgentCall = async (
+  agentId: number,
+  callId: number,
+  toNumber: string
+): Promise<AgentCall> => {
+  const response = await api.post(
+    `/agents/${agentId}/calls/${callId}/initiate`,
+    null,
+    {
+      params: {
+        to_number: toNumber,
+      },
+    }
   );
 
   return response.data;
@@ -49,9 +87,6 @@ export const getAgentCallIntelligence = async (
 
 /**
  * Analyze a call with AI
- *
- * Backend:
- * POST /agents/{agent_id}/calls/{call_id}/intelligence
  */
 export const analyzeAgentCall = async (
   agentId: number,
@@ -59,6 +94,19 @@ export const analyzeAgentCall = async (
 ): Promise<AgentCallIntelligence> => {
   const response = await api.post(
     `/agents/${agentId}/calls/${callId}/intelligence`
+  );
+
+  return response.data;
+};
+
+/**
+ * Get calls associated with a lead
+ */
+export const getLeadCalls = async (
+  leadId: number
+) => {
+  const response = await api.get(
+    `/leads/${leadId}/calls`
   );
 
   return response.data;
