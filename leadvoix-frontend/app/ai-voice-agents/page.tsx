@@ -32,9 +32,11 @@ export default function AIVoiceAgentsPage() {
         </h1>
 
         <p className="mt-6 max-w-2xl text-lg leading-8 text-gray-600">
-          LeadVoix combines AI voice agents, lead management, and CRM
-          workflows to help businesses manage customer conversations and
-          follow up on potential opportunities.
+          LeadVoix helps businesses manage customer calls, capture lead
+         details, identify sales opportunities, and organize follow-ups
+         through AI voice agents and CRM-connected workflows. Explore
+         how voice automation can support your sales and customer
+         communication process. 
         </p>
 
         <div className="mt-8 flex flex-wrap gap-4">
@@ -61,8 +63,9 @@ export default function AIVoiceAgentsPage() {
               Manage Business Calls
             </h2>
             <p className="mt-3 leading-7 text-gray-600">
-              Use AI voice workflows to support business call handling and
-              customer conversations.
+              Support inbound customer conversations and routine call handling
+             with AI voice workflows, helping your team manage enquiries more
+             consistently.
             </p>
           </article>
 
@@ -71,8 +74,9 @@ export default function AIVoiceAgentsPage() {
               Qualify Potential Leads
             </h2>
             <p className="mt-3 leading-7 text-gray-600">
-              Organize lead information and help your team identify which
-              prospects need attention and follow-up.
+              Capture prospect information, understand customer interest, and
+             organize potential leads so your sales team can prioritize
+             follow-ups.
             </p>
           </article>
 
@@ -81,8 +85,9 @@ export default function AIVoiceAgentsPage() {
               Connect Calls With Your CRM
             </h2>
             <p className="mt-3 leading-7 text-gray-600">
-              Bring voice conversations and lead management workflows
-              together to support a more organized sales process.
+              Connect call information with lead management workflows to keep
+              customer conversations, prospect details, and next steps organized
+             in one sales process.
             </p>
           </article>
         </div>
