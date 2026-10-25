@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -6,7 +7,9 @@ from backend.app.schemas.organization import (
     OrganizationCreate,
     OrganizationResponse,
 )
-from backend.app.services.organization import create_organization
+from backend.app.services.organization import (
+    create_organization as create_organization_service,
+)
 from backend.app.utils.dependencies import get_current_user
 from backend.app.models.user import User
 
@@ -25,7 +28,7 @@ def create_organization(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return create_organization(
+    return create_organization_service(
         db,
         organization,
         current_user,
