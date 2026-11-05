@@ -23,17 +23,22 @@ export interface SignupResponse {
 
 export interface User {
   id: number;
-  name: string;
+  name?: string;
   email: string;
   role: string;
-  organization_id: number;
+  organization_id?: number;
+  organization_name?: string;
 }
 
 export interface AuthState {
   user: User | null;
-  token: string | null;
+  accessToken: string | null;
   isAuthenticated: boolean;
+  isHydrated: boolean;
 
+  setUser: (user: User) => void;
+  setAccessToken: (token: string) => void;
   login: (user: User, token: string) => void;
   logout: () => void;
+  hydrate: () => void;
 }

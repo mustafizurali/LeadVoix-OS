@@ -2,12 +2,14 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column,
+    ForeignKey,
     Integer,
     String,
     Text,
     DateTime,
     Boolean,
 )
+from sqlalchemy.orm import relationship
 
 from backend.app.db.database import Base
 
@@ -18,6 +20,13 @@ class FollowUpTask(Base):
     id = Column(
         Integer,
         primary_key=True,
+        index=True,
+    )
+
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id"),
+        nullable=True,
         index=True,
     )
 
@@ -64,4 +73,9 @@ class FollowUpTask(Base):
     completed_at = Column(
         DateTime(timezone=True),
         nullable=True,
+    )
+
+    organization = relationship(
+        "Organization",
+        foreign_keys=[organization_id],
     )

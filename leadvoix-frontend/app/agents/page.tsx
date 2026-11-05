@@ -1,8 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Bot, Mic, Globe, Sparkles, Plus, Edit2, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
 import DashboardLayout from "@/modules/dashboard/components/DashboardLayout";
 import api from "@/lib/api/axios";
+import {
+  PageContainer,
+  PageHeader,
+  PrimaryButton,
+  SecondaryButton,
+  DangerButton,
+  StatusBadge,
+  FormField,
+  ConfirmationDialog,
+} from "@/components/crm";
 
 type Agent = {
   id: number;
@@ -29,12 +40,28 @@ type AgentForm = {
 const emptyForm: AgentForm = {
   name: "",
   description: "",
-  voice: "",
+  voice: "alloy",
   language: "en",
   system_prompt: "",
   greeting_message: "",
   is_active: true,
 };
+
+const VOICE_OPTIONS = [
+  { value: "alloy", label: "Alloy (Neutral, Balanced)" },
+  { value: "echo", label: "Echo (Warm, Crisp)" },
+  { value: "fable", label: "Fable (British, Expressive)" },
+  { value: "onyx", label: "Onyx (Deep, Authoritative)" },
+  { value: "nova", label: "Nova (Energetic, Friendly)" },
+  { value: "shimmer", label: "Shimmer (Clear, High-pitch)" },
+];
+
+const LANGUAGE_OPTIONS = [
+  { value: "en", label: "English (US / Global)" },
+  { value: "bn", label: "Bengali (বাংলা)" },
+  { value: "hi", label: "Hindi (हिन्दी)" },
+  { value: "ar", label: "Arabic (العربية)" },
+];
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -46,16 +73,18 @@ export default function AgentsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const [agentToDelete, setAgentToDelete] = useState<Agent | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const loadAgents = async () => {
     try {
       setLoading(true);
       setError("");
-
       const response = await api.get("/agents");
       setAgents(response.data);
     } catch (err) {
       console.error(err);
-      setError("Failed to load agents.");
+      setError("Failed to load AI agents from the server.");
     } finally {
       setLoading(false);
     }
@@ -80,9 +109,7 @@ export default function AgentsPage() {
     setEditingId(null);
   };
 
-  const handleSubmit = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     try {
@@ -91,28 +118,28 @@ export default function AgentsPage() {
       setSuccess("");
 
       const payload = {
-        name: form.name,
-        description: form.description || null,
+        name: form.name.trim(),
+        description: form.description?.trim() || null,
         voice: form.voice || null,
         language: form.language,
-        system_prompt: form.system_prompt || null,
-        greeting_message: form.greeting_message || null,
+        system_prompt: form.system_prompt?.trim() || null,
+        greeting_message: form.greeting_message?.trim() || null,
         is_active: form.is_active,
       };
 
       if (editingId) {
         await api.put(`/agents/${editingId}`, payload);
-        setSuccess("Agent updated successfully.");
+        setSuccess("Voice agent updated successfully.");
       } else {
         await api.post("/agents", payload);
-        setSuccess("Agent created successfully.");
+        setSuccess("Voice agent created successfully.");
       }
 
       resetForm();
       await loadAgents();
     } catch (err) {
       console.error(err);
-      setError("Failed to save agent.");
+      setError("Failed to save voice agent. Please verify parameters.");
     } finally {
       setSaving(false);
     }
@@ -120,323 +147,295 @@ export default function AgentsPage() {
 
   const handleEdit = (agent: Agent) => {
     setEditingId(agent.id);
-
     setForm({
       name: agent.name,
       description: agent.description || "",
-      voice: agent.voice || "",
+      voice: agent.voice || "alloy",
       language: agent.language || "en",
       system_prompt: agent.system_prompt || "",
       greeting_message: agent.greeting_message || "",
       is_active: agent.is_active,
     });
-
     setSuccess("");
     setError("");
   };
 
-  const handleDelete = async (agentId: number) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this agent?"
-    );
-
-    if (!confirmed) {
-      return;
-    }
+  const handleConfirmDelete = async () => {
+    if (!agentToDelete) return;
 
     try {
+      setDeleteLoading(true);
       setError("");
       setSuccess("");
+      await api.delete(`/agents/${agentToDelete.id}`);
+      setSuccess(`Agent "${agentToDelete.name}" deleted successfully.`);
 
-      await api.delete(`/agents/${agentId}`);
-
-      setSuccess("Agent deleted successfully.");
-
-      if (editingId === agentId) {
+      if (editingId === agentToDelete.id) {
         resetForm();
       }
 
       await loadAgents();
+      setAgentToDelete(null);
     } catch (err) {
       console.error(err);
       setError("Failed to delete agent.");
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold">
-            AI Voice Agents
-          </h1>
-
-          <p className="mt-2 text-slate-500">
-            Create and manage your AI voice agents.
-          </p>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="AI Voice Agents"
+          subtitle="Configure conversational telephony agents, personality prompts, and speech synthesis."
+          badge="AI Voice Studio"
+          action={
+            editingId ? (
+              <SecondaryButton onClick={resetForm}>
+                <Plus className="h-4 w-4" />
+                New Agent Studio
+              </SecondaryButton>
+            ) : undefined
+          }
+        />
 
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
-            {error}
+          <div className="flex items-center gap-2.5 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
         {success && (
-          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-700">
-            {success}
+          <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span>{success}</span>
           </div>
         )}
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold">
-                {editingId ? "Edit Agent" : "Create AI Voice Agent"}
-              </h2>
+        <div className="grid gap-8 lg:grid-cols-12">
+          {/* Left Form: Agent Configuration Studio */}
+          <div className="rounded-xl border border-[#273449] bg-[#151D32] p-6 shadow-sm lg:col-span-7">
+            <div className="mb-6 flex items-center justify-between border-b border-[#273449] pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-[#7657F6]" />
+                  <h2 className="text-lg font-semibold text-[#F5F7FC]">
+                    {editingId ? "Edit Voice Agent" : "Agent Configuration Studio"}
+                  </h2>
+                </div>
+                <p className="mt-1 text-xs text-[#94A3B8]">
+                  Define prompts, voice synthesis parameters, and conversation behavior.
+                </p>
+              </div>
 
-              <p className="mt-1 text-sm text-slate-500">
-                Configure how your AI voice agent behaves.
-              </p>
+              {editingId && (
+                <span className="rounded bg-[#7657F6]/10 px-2.5 py-1 font-mono text-xs font-semibold text-[#7657F6] border border-[#7657F6]/20">
+                  Editing #{editingId}
+                </span>
+              )}
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              className="space-y-5"
-            >
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Agent Name
-                </label>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <FormField
+                label="Agent Name"
+                name="name"
+                value={form.name}
+                onChange={(e) => handleChange("name", e.target.value)}
+                placeholder="e.g. Inbound Sales Qualifier"
+                required
+              />
 
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) =>
-                    handleChange("name", e.target.value)
-                  }
-                  placeholder="Sales Agent"
-                  required
-                  className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+              <FormField
+                label="Role Description"
+                name="description"
+                value={form.description}
+                onChange={(e) => handleChange("description", e.target.value)}
+                placeholder="Brief summary of what this agent handles..."
+              />
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  label="Speech Voice Engine"
+                  name="voice"
+                  as="select"
+                  value={form.voice}
+                  onChange={(e) => handleChange("voice", e.target.value)}
+                  options={VOICE_OPTIONS}
+                />
+
+                <FormField
+                  label="Primary Language"
+                  name="language"
+                  as="select"
+                  value={form.language}
+                  onChange={(e) => handleChange("language", e.target.value)}
+                  options={LANGUAGE_OPTIONS}
                 />
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Description
-                </label>
+              <FormField
+                label="System Prompt (Persona & Instructions)"
+                name="system_prompt"
+                as="textarea"
+                value={form.system_prompt}
+                onChange={(e) => handleChange("system_prompt", e.target.value)}
+                placeholder="You are LeadVoix Sales Representative. Qualify the prospect based on company size, budget, and implementation timeline..."
+                rows={5}
+                helperText="Guidance that governs conversation boundaries, tone, and objection handling."
+              />
 
-                <textarea
-                  value={form.description}
-                  onChange={(e) =>
-                    handleChange("description", e.target.value)
-                  }
-                  placeholder="AI agent for qualifying sales leads"
-                  rows={3}
-                  className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-                />
-              </div>
+              <FormField
+                label="Opening Greeting Phrase"
+                name="greeting_message"
+                as="textarea"
+                value={form.greeting_message}
+                onChange={(e) => handleChange("greeting_message", e.target.value)}
+                placeholder="Hello, this is Alex from LeadVoix OS. Thanks for requesting a consultation—do you have a quick minute?"
+                rows={2}
+                helperText="Spoken automatically when the call is answered by the contact."
+              />
 
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Voice
-                  </label>
-
+              <div className="flex items-center gap-3 pt-2">
+                <label className="flex cursor-pointer items-center gap-2.5 text-sm font-medium text-[#F5F7FC]">
                   <input
-                    type="text"
-                    value={form.voice}
-                    onChange={(e) =>
-                      handleChange("voice", e.target.value)
-                    }
-                    placeholder="alloy"
-                    className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                    type="checkbox"
+                    checked={form.is_active}
+                    onChange={(e) => handleChange("is_active", e.target.checked)}
+                    className="h-4 w-4 rounded border-[#273449] bg-[#0E1528] text-[#7657F6] focus:ring-[#7657F6]/30 focus:ring-offset-0"
                   />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Language
-                  </label>
-
-                  <select
-                    value={form.language}
-                    onChange={(e) =>
-                      handleChange("language", e.target.value)
-                    }
-                    className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-                  >
-                    <option value="en">English</option>
-                    <option value="bn">Bengali</option>
-                    <option value="hi">Hindi</option>
-                    <option value="ar">Arabic</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  System Prompt
-                </label>
-
-                <textarea
-                  value={form.system_prompt}
-                  onChange={(e) =>
-                    handleChange("system_prompt", e.target.value)
-                  }
-                  placeholder="You are a professional sales assistant..."
-                  rows={5}
-                  className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Greeting Message
-                </label>
-
-                <textarea
-                  value={form.greeting_message}
-                  onChange={(e) =>
-                    handleChange(
-                      "greeting_message",
-                      e.target.value
-                    )
-                  }
-                  placeholder="Hello, thank you for your interest in LeadVoix..."
-                  rows={3}
-                  className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="flex items-center gap-3">
-                <input
-                  id="is_active"
-                  type="checkbox"
-                  checked={form.is_active}
-                  onChange={(e) =>
-                    handleChange(
-                      "is_active",
-                      e.target.checked
-                    )
-                  }
-                  className="h-4 w-4"
-                />
-
-                <label
-                  htmlFor="is_active"
-                  className="text-sm font-medium text-slate-700"
-                >
-                  Agent is active
+                  <span>Active Agent (Available for Outbound / Inbound Telephony)</span>
                 </label>
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {saving
-                    ? "Saving..."
-                    : editingId
-                    ? "Update Agent"
-                    : "Create Agent"}
-                </button>
-
+              <div className="flex items-center justify-end gap-3 border-t border-[#273449] pt-4">
                 {editingId && (
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="rounded-lg border border-slate-300 px-6 py-3 font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
+                  <SecondaryButton type="button" onClick={resetForm} disabled={saving}>
+                    Cancel Edit
+                  </SecondaryButton>
                 )}
+
+                <PrimaryButton type="submit" loading={saving}>
+                  {editingId ? "Save Agent" : "Create Agent"}
+                </PrimaryButton>
               </div>
             </form>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold">
-              Your Agents
-            </h2>
+          {/* Right Column: Active Agents Roster */}
+          <div className="space-y-4 lg:col-span-5">
+            <div className="rounded-xl border border-[#273449] bg-[#151D32] p-5 shadow-sm">
+              <div className="flex items-center justify-between border-b border-[#273449] pb-3">
+                <div className="flex items-center gap-2">
+                  <Bot className="h-4 w-4 text-[#24C8D8]" />
+                  <h3 className="text-base font-semibold text-[#F5F7FC]">
+                    Configured Agents ({agents.length})
+                  </h3>
+                </div>
+                <span className="font-mono text-xs text-[#94A3B8]">
+                  LeadVoix Fleet
+                </span>
+              </div>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Manage your existing AI voice agents.
-            </p>
+              <div className="mt-4 space-y-3">
+                {loading ? (
+                  <div className="py-8 text-center text-sm text-[#94A3B8]">
+                    Loading voice agents...
+                  </div>
+                ) : agents.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-[#273449] bg-[#0E1528] p-6 text-center">
+                    <Bot className="mx-auto h-8 w-8 text-[#94A3B8]/40" />
+                    <p className="mt-2 text-sm text-[#94A3B8]">
+                      No voice agents configured yet. Use the studio to launch your first agent.
+                    </p>
+                  </div>
+                ) : (
+                  agents.map((agent) => {
+                    const isBeingEdited = editingId === agent.id;
 
-            <div className="mt-6 space-y-4">
-              {loading ? (
-                <p className="text-sm text-slate-500">
-                  Loading agents...
-                </p>
-              ) : agents.length === 0 ? (
-                <p className="text-sm text-slate-500">
-                  No agents found.
-                </p>
-              ) : (
-                agents.map((agent) => (
-                  <div
-                    key={agent.id}
-                    className="rounded-lg border border-slate-200 p-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-semibold text-slate-900">
-                          {agent.name}
-                        </h3>
-
-                        <p className="mt-1 text-xs text-slate-500">
-                          Agent ID: {agent.id}
-                        </p>
-                      </div>
-
-                      <span
-                        className={`rounded-full px-2 py-1 text-xs font-medium ${
-                          agent.is_active
-                            ? "bg-green-100 text-green-700"
-                            : "bg-slate-100 text-slate-600"
+                    return (
+                      <div
+                        key={agent.id}
+                        className={`rounded-xl border p-4 transition ${
+                          isBeingEdited
+                            ? "border-[#7657F6] bg-[#7657F6]/5 ring-1 ring-[#7657F6]/40"
+                            : "border-[#273449] bg-[#0E1528] hover:border-[#384964]"
                         }`}
                       >
-                        {agent.is_active
-                          ? "Active"
-                          : "Inactive"}
-                      </span>
-                    </div>
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h4 className="font-medium text-[#F5F7FC]">
+                              {agent.name}
+                            </h4>
+                            <p className="mt-0.5 font-mono text-[11px] text-[#94A3B8]">
+                              ID: #{agent.id}
+                            </p>
+                          </div>
 
-                    {agent.description && (
-                      <p className="mt-3 text-sm text-slate-600">
-                        {agent.description}
-                      </p>
-                    )}
+                          <StatusBadge
+                            status={agent.is_active ? "active" : "inactive"}
+                          />
+                        </div>
 
-                    <div className="mt-4 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(agent)}
-                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                      >
-                        Edit
-                      </button>
+                        {agent.description && (
+                          <p className="mt-2 text-xs text-[#94A3B8] line-clamp-2">
+                            {agent.description}
+                          </p>
+                        )}
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleDelete(agent.id)
-                        }
-                        className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
+                        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                          {agent.voice && (
+                            <span className="inline-flex items-center gap-1 rounded bg-[#151D32] border border-[#273449] px-2 py-0.5 font-mono text-[11px] text-[#24C8D8]">
+                              <Mic className="h-3 w-3" />
+                              {agent.voice}
+                            </span>
+                          )}
+
+                          <span className="inline-flex items-center gap-1 rounded bg-[#151D32] border border-[#273449] px-2 py-0.5 font-mono text-[11px] text-[#94A3B8]">
+                            <Globe className="h-3 w-3" />
+                            {agent.language.toUpperCase()}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-end gap-2 border-t border-[#273449]/60 pt-3">
+                          <SecondaryButton
+                            size="sm"
+                            onClick={() => handleEdit(agent)}
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                            Edit
+                          </SecondaryButton>
+
+                          <DangerButton
+                            size="sm"
+                            onClick={() => setAgentToDelete(agent)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </DangerButton>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+
+        <ConfirmationDialog
+          isOpen={Boolean(agentToDelete)}
+          onClose={() => setAgentToDelete(null)}
+          onConfirm={handleConfirmDelete}
+          title="Delete AI Agent"
+          message={`Are you sure you want to delete "${agentToDelete?.name}"? Telephony routes relying on this agent will be disrupted.`}
+          confirmLabel="Delete Agent"
+          variant="danger"
+          loading={deleteLoading}
+        />
+      </PageContainer>
     </DashboardLayout>
   );
 }

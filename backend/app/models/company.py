@@ -40,14 +40,18 @@ class Company(Base):
         "Organization",
         back_populates="companies",
     )
-    
-    
+
     deals = relationship(
-     "Deal",
-      back_populates="company",
+        "Deal",
+        back_populates="company",
+    )
+
+    contacts = relationship(
+        "Contact",
+        back_populates="company_rel",
     )
 
     tasks = relationship(
-      "Task",
-      back_populates="company",
+        "Task",
+        back_populates="company",
     )

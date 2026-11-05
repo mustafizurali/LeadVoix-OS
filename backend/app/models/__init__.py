@@ -16,3 +16,6 @@ from .agent_call_intelligence import AgentCallIntelligence
 from .follow_up_task import FollowUpTask
 from .demo_request import DemoRequest
 from .subscription import Subscription
+from .call_processing_job import CallProcessingJob
+from .deal_stage_history import DealStageHistory
+from .activity import Activity

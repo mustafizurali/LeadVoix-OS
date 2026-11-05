@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-
+import { Modal, PrimaryButton, SecondaryButton } from "@/components/crm";
 import { createCompany } from "../api/companyApi";
 import { CreateCompanyPayload } from "../types/company.types";
 import CompanyForm from "./CompanyForm";
@@ -12,89 +12,114 @@ interface CreateCompanyModalProps {
   onClose: () => void;
 }
 
-const emptyForm: CreateCompanyPayload = {
-  name: "",
-  domain: "",
-  industry: "",
-  company_size: "",
-  website: "",
-  notes: "",
-};
-
 export default function CreateCompanyModal({
   open,
   onClose,
 }: CreateCompanyModalProps) {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState<CreateCompanyPayload>(emptyForm);
+  const [error, setError] = useState<string | null>(null);
+
+  const [form, setForm] = useState<CreateCompanyPayload>({
+    name: "",
+    domain: "",
+    industry: "",
+    company_size: "",
+    website: "",
+    notes: "",
+  });
 
   const handleChange = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    setForm((previous) => ({
-      ...previous,
+    setForm((current) => ({
+      ...current,
       [event.target.name]: event.target.value,
     }));
   };
 
+  const resetForm = () => {
+    setForm({
+      name: "",
+      domain: "",
+      industry: "",
+      company_size: "",
+      website: "",
+      notes: "",
+    });
+    setError(null);
+  };
+
   const handleSubmit = async () => {
     if (!form.name.trim()) {
-      alert("Company name is required");
+      setError("Company Name is required");
       return;
     }
 
     try {
       setLoading(true);
-      await createCompany({
-        ...form,
+      setError(null);
+
+      const payload = {
+        name: form.name.trim(),
         domain: form.domain?.trim() || undefined,
         industry: form.industry?.trim() || undefined,
         company_size: form.company_size?.trim() || undefined,
         website: form.website?.trim() || undefined,
         notes: form.notes?.trim() || undefined,
+      };
+
+      await createCompany(payload);
+
+      await queryClient.invalidateQueries({
+        queryKey: ["companies"],
       });
-      await queryClient.invalidateQueries({ queryKey: ["companies"] });
-      setForm(emptyForm);
+
+      resetForm();
       onClose();
-    } catch (error) {
-      console.error(error);
-      alert("Failed to create company");
+    } catch (err: unknown) {
+      console.error(err);
+      setError("Failed to create company. Please verify the information and try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-xl">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-3xl font-bold">Create New Company</h2>
-          <button
-            onClick={onClose}
-            className="text-2xl text-slate-500 hover:text-black"
-          >
-            ×
-          </button>
-        </div>
+    <Modal
+      open={open}
+      onClose={() => {
+        resetForm();
+        onClose();
+      }}
+      title="Create New Company"
+      subtitle="Register a new business account or organization."
+      maxWidth="2xl"
+    >
+      <div className="space-y-5">
+        {error && (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/15 p-3 text-xs text-red-300">
+            {error}
+          </div>
+        )}
 
         <CompanyForm form={form} onChange={handleChange} />
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button onClick={onClose} className="rounded-lg border px-5 py-2">
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
+        <div className="flex justify-end gap-3 pt-4 border-t border-[#273449]">
+          <SecondaryButton
+            onClick={() => {
+              resetForm();
+              onClose();
+            }}
             disabled={loading}
-            className="rounded-lg bg-blue-600 px-5 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? "Creating..." : "Create Company"}
-          </button>
+            Cancel
+          </SecondaryButton>
+          <PrimaryButton onClick={handleSubmit} loading={loading}>
+            Create Company
+          </PrimaryButton>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

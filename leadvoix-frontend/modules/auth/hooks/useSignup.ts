@@ -13,11 +13,7 @@ export const useSignup = () => {
     mutationFn: (data: SignupRequest) => register(data),
 
     onSuccess: () => {
-      router.replace("/login");
-    },
-
-    onError: (error) => {
-      console.error(error);
+      router.replace("/login?registered=true");
     },
   });
 };

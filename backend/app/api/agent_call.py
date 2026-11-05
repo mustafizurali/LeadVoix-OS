@@ -1,4 +1,3 @@
-
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -26,6 +25,7 @@ from backend.app.services.voice_call import (
     end_voice_call,
 )
 from backend.app.utils.dependencies import get_current_user
+from backend.app.utils.phone import normalize_phone
 
 
 router = APIRouter(
@@ -63,13 +63,17 @@ def get_authorized_call(
     call_id: int,
     organization_id: int,
 ):
-    agent_call = get_agent_call(db, call_id)
+    agent_call = (
+        db.query(AgentCall)
+        .filter(
+            AgentCall.id == call_id,
+            AgentCall.agent_id == agent_id,
+            AgentCall.organization_id == organization_id,
+        )
+        .first()
+    )
 
-    if (
-        not agent_call
-        or agent_call.agent_id != agent_id
-        or agent_call.organization_id != organization_id
-    ):
+    if not agent_call:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Agent call not found",
@@ -129,6 +133,12 @@ def initiate_call(
             detail="This call has already been initiated",
         )
 
+    if not agent_call.caller_phone and to_number:
+        agent_call.caller_phone = to_number
+        norm_phone, ext = normalize_phone(to_number)
+        agent_call.caller_phone_normalized = norm_phone
+        agent_call.caller_phone_extension = ext
+
     try:
         return initiate_voice_call(
             db=db,
@@ -138,9 +148,13 @@ def initiate_call(
             from_number=settings.TWILIO_PHONE_NUMBER,
         )
     except RuntimeError as exc:
+        import traceback
+        print("\n" + "="*50)
+        print(">>> ASOL TWILIO ERROR:", str(exc))
+        print("="*50 + "\n")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="The voice provider could not initiate the call",
+            detail=f"Twilio Error: {str(exc)}",
         ) from exc
     except SQLAlchemyError as exc:
         raise HTTPException(

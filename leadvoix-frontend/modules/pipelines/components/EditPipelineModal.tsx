@@ -6,6 +6,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { updatePipeline } from "../api/pipelineApi";
 import type { Pipeline, UpdatePipelinePayload } from "../types/pipeline.types";
 import PipelineForm from "./PipelineForm";
+import { Modal, PrimaryButton, SecondaryButton } from "@/components/crm";
+import { getErrorMessage } from "@/lib/api/errors";
 
 interface EditPipelineModalProps {
   open: boolean;
@@ -16,7 +18,7 @@ interface EditPipelineModalProps {
 const emptyForm: UpdatePipelinePayload = {
   name: "",
   description: "",
-  color: "#3b82f6",
+  color: "#7657F6",
   is_default: false,
   is_active: true,
 };
@@ -28,6 +30,7 @@ export default function EditPipelineModal({
 }: EditPipelineModalProps) {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<UpdatePipelinePayload>(emptyForm);
 
   useEffect(() => {
@@ -35,10 +38,11 @@ export default function EditPipelineModal({
       setForm({
         name: pipeline.name,
         description: pipeline.description ?? "",
-        color: pipeline.color ?? "#3b82f6",
+        color: pipeline.color ?? "#7657F6",
         is_default: pipeline.is_default,
         is_active: pipeline.is_active,
       });
+      setError(null);
     }
   }, [pipeline]);
 
@@ -46,7 +50,6 @@ export default function EditPipelineModal({
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = event.target;
-
     setForm((previous) => ({
       ...previous,
       [name]: value,
@@ -56,12 +59,13 @@ export default function EditPipelineModal({
   const handleSubmit = async () => {
     if (!pipeline) return;
     if (!form.name?.trim()) {
-      alert("Pipeline name is required");
+      setError("Pipeline name is required");
       return;
     }
 
     try {
       setLoading(true);
+      setError(null);
       await updatePipeline(pipeline.id, {
         name: form.name.trim(),
         description: form.description?.trim() || undefined,
@@ -72,9 +76,11 @@ export default function EditPipelineModal({
 
       await queryClient.invalidateQueries({ queryKey: ["pipelines"] });
       onClose();
-    } catch (error) {
-      console.error(error);
-      alert("Failed to update pipeline");
+    } catch (err: unknown) {
+      console.error(err);
+      setError(
+        getErrorMessage(err, "Failed to update pipeline. Please try again.")
+      );
     } finally {
       setLoading(false);
     }
@@ -83,44 +89,34 @@ export default function EditPipelineModal({
   if (!open || !pipeline) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-slate-900">Edit Pipeline</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-2xl text-slate-500 transition hover:text-slate-900"
-          >
-            ×
-          </button>
-        </div>
-
+    <Modal
+      isOpen={open}
+      onClose={onClose}
+      title={`Edit Pipeline: ${pipeline.name}`}
+      maxWidth="max-w-xl"
+    >
+      <div className="space-y-6">
         <PipelineForm
           form={form}
           onChange={handleChange}
-          onToggleDefault={(checked) => setForm((previous) => ({ ...previous, is_default: checked }))}
-          onToggleActive={(checked) => setForm((previous) => ({ ...previous, is_active: checked }))}
+          onToggleDefault={(checked) =>
+            setForm((previous) => ({ ...previous, is_default: checked }))
+          }
+          onToggleActive={(checked) =>
+            setForm((previous) => ({ ...previous, is_active: checked }))
+          }
+          error={error || undefined}
         />
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-slate-300 px-5 py-2.5 text-slate-700 transition hover:bg-slate-100"
-          >
+        <div className="flex justify-end gap-3 border-t border-[#273449] pt-4">
+          <SecondaryButton onClick={onClose} disabled={loading}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={loading}
-            className="rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? "Updating..." : "Update Pipeline"}
-          </button>
+          </SecondaryButton>
+          <PrimaryButton onClick={handleSubmit} loading={loading}>
+            Save Changes
+          </PrimaryButton>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

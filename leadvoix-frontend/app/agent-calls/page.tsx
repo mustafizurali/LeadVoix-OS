@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Bot, ChevronDown } from "lucide-react";
 
 import DashboardLayout from "@/modules/dashboard/components/DashboardLayout";
 import AgentCallList from "@/modules/agent-calls/components/AgentCallList";
 import api from "@/lib/api/axios";
+import { PageContainer, PageHeader, EmptyState, StatusBadge } from "@/components/crm";
 
 type Agent = {
   id: number;
@@ -21,9 +23,7 @@ export default function AgentCallsPage() {
     const loadAgents = async () => {
       try {
         const response = await api.get("/agents");
-
         const agentList: Agent[] = response.data;
-
         setAgents(agentList);
 
         if (agentList.length > 0) {
@@ -39,66 +39,81 @@ export default function AgentCallsPage() {
     loadAgents();
   }, []);
 
+  const selectedAgent = agents.find((a) => a.id === selectedAgentId);
+
   return (
     <DashboardLayout>
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold">
-            Agent Calls
-          </h1>
-
-          <p className="mt-2 text-slate-500">
-            View calls made by your AI voice agents.
-          </p>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Telephony & Agent Calls"
+          subtitle="Review live conversational call sessions, audio recordings, and automated deal intelligence."
+          badge="Autonomous Voice"
+        />
 
         {loading ? (
-          <div className="rounded-lg bg-white p-6 shadow-sm">
-            Loading agents...
+          <div className="rounded-xl border border-[#273449] bg-[#151D32] p-8 text-center text-sm text-[#94A3B8]">
+            Loading voice agents...
           </div>
         ) : agents.length === 0 ? (
-          <div className="rounded-lg bg-white p-6 shadow-sm">
-            <p className="text-slate-600">
-              No AI voice agents found.
-            </p>
-
-            <p className="mt-2 text-sm text-slate-500">
-              Create an AI Voice Agent first to view agent calls.
-            </p>
-          </div>
+          <EmptyState
+            title="No AI Voice Agents found"
+            description="Create an AI Voice Agent first to initiate outbound calls and inspect conversational intelligence."
+            icon={Bot}
+          />
         ) : (
-          <>
-            <div className="rounded-lg bg-white p-6 shadow-sm">
-              <label
-                htmlFor="agent"
-                className="block text-sm font-medium text-slate-700"
-              >
-                Select AI Voice Agent
-              </label>
+          <div className="space-y-6">
+            {/* AGENT SELECTOR BAR */}
+            <div className="flex flex-col gap-3 rounded-xl border border-[#273449] bg-[#151D32] p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#24C8D8]/10 border border-[#24C8D8]/20 text-[#24C8D8]">
+                  <Bot className="h-5 w-5" />
+                </div>
+                <div>
+                  <label
+                    htmlFor="agent-select"
+                    className="block text-xs font-semibold uppercase tracking-wider text-[#94A3B8]"
+                  >
+                    Active Voice Agent
+                  </label>
+                  <p className="text-xs text-[#F5F7FC]">
+                    Switch between deployed AI agents to view their call logs.
+                  </p>
+                </div>
+              </div>
 
-              <select
-                id="agent"
-                value={selectedAgentId ?? ""}
-                onChange={(event) =>
-                  setSelectedAgentId(Number(event.target.value))
-                }
-                className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3"
-              >
-                {agents.map((agent) => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.name}
-                    {agent.is_active ? " (Active)" : " (Inactive)"}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-3">
+                <div className="relative min-w-[240px]">
+                  <select
+                    id="agent-select"
+                    value={selectedAgentId ?? ""}
+                    onChange={(event) =>
+                      setSelectedAgentId(Number(event.target.value))
+                    }
+                    className="w-full appearance-none rounded-lg border border-[#273449] bg-[#0E1528] px-3.5 py-2 pr-10 text-sm font-medium text-[#F5F7FC] outline-none transition focus:border-[#7657F6] focus:ring-2 focus:ring-[#7657F6]/20"
+                  >
+                    {agents.map((agent) => (
+                      <option key={agent.id} value={agent.id}>
+                        {agent.name} {agent.is_active ? "(Active)" : "(Inactive)"}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+                </div>
+
+                {selectedAgent && (
+                  <StatusBadge
+                    status={selectedAgent.is_active ? "active" : "inactive"}
+                  />
+                )}
+              </div>
             </div>
 
             {selectedAgentId !== null && (
               <AgentCallList agentId={selectedAgentId} />
             )}
-          </>
+          </div>
         )}
-      </div>
+      </PageContainer>
     </DashboardLayout>
   );
 }

@@ -11,6 +11,8 @@ class AgentCallCreate(BaseModel):
 
 
 class AgentCallUpdate(BaseModel):
+    caller_name: Optional[str] = None
+    caller_phone: Optional[str] = None
     status: Optional[str] = None
     duration: Optional[int] = None
     transcript: Optional[str] = None

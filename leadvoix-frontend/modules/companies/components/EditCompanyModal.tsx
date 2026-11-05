@@ -1,13 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-
+import { Modal, PrimaryButton, SecondaryButton } from "@/components/crm";
 import { updateCompany } from "../api/companyApi";
-import {
-  Company,
-  UpdateCompanyPayload,
-} from "../types/company.types";
+import { Company, UpdateCompanyPayload } from "../types/company.types";
 import CompanyForm from "./CompanyForm";
 
 interface EditCompanyModalProps {
@@ -23,14 +20,16 @@ export default function EditCompanyModal({
 }: EditCompanyModalProps) {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const [form, setForm] = useState<UpdateCompanyPayload>({
     name: "",
     domain: "",
     industry: "",
     company_size: "",
     website: "",
-    notes: "",
     status: "",
+    notes: "",
   });
 
   useEffect(() => {
@@ -41,82 +40,85 @@ export default function EditCompanyModal({
         industry: company.industry ?? "",
         company_size: company.company_size ?? "",
         website: company.website ?? "",
-        notes: company.notes ?? "",
         status: company.status,
+        notes: company.notes ?? "",
       });
+      setError(null);
     }
   }, [company]);
 
   const handleChange = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    setForm((previous) => ({
-      ...previous,
+    setForm((current) => ({
+      ...current,
       [event.target.name]: event.target.value,
     }));
   };
 
   const handleSubmit = async () => {
     if (!company) return;
+
     if (!form.name?.trim()) {
-      alert("Company name is required");
+      setError("Company Name is required");
       return;
     }
 
     try {
       setLoading(true);
-      await updateCompany(company.id, {
+      setError(null);
+
+      const payload = {
         name: form.name.trim(),
         domain: form.domain?.trim() || undefined,
         industry: form.industry?.trim() || undefined,
         company_size: form.company_size?.trim() || undefined,
         website: form.website?.trim() || undefined,
-        notes: form.notes?.trim() || undefined,
         status: form.status?.trim() || undefined,
+        notes: form.notes?.trim() || undefined,
+      };
+
+      await updateCompany(company.id, payload);
+
+      await queryClient.invalidateQueries({
+        queryKey: ["companies"],
       });
-      await queryClient.invalidateQueries({ queryKey: ["companies"] });
+
       onClose();
-    } catch (error) {
-      console.error(error);
-      alert("Failed to update company");
+    } catch (err: unknown) {
+      console.error(err);
+      setError("Failed to update company. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!open || !company) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-xl">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-3xl font-bold">Edit Company</h2>
-          <button
-            onClick={onClose}
-            className="text-2xl text-slate-500 hover:text-black"
-          >
-            ×
-          </button>
-        </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Edit Company"
+      subtitle={`Updating account profile for ${company?.name ?? "Company"}`}
+      maxWidth="2xl"
+    >
+      <div className="space-y-5">
+        {error && (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/15 p-3 text-xs text-red-300">
+            {error}
+          </div>
+        )}
 
-        <CompanyForm
-          form={form}
-          onChange={handleChange}
-        />
+        <CompanyForm form={form} onChange={handleChange} />
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button onClick={onClose} className="rounded-lg border px-5 py-2">
+        <div className="flex justify-end gap-3 pt-4 border-t border-[#273449]">
+          <SecondaryButton onClick={onClose} disabled={loading}>
             Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="rounded-lg bg-blue-600 px-5 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? "Updating..." : "Update Company"}
-          </button>
+          </SecondaryButton>
+          <PrimaryButton onClick={handleSubmit} loading={loading}>
+            Save Changes
+          </PrimaryButton>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

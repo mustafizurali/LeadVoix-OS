@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 class VoiceProvider(ABC):
@@ -10,6 +10,7 @@ class VoiceProvider(ABC):
         to_number: str,
         from_number: str,
         agent_id: int,
+        call_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         pass
 

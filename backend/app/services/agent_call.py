@@ -1,4 +1,3 @@
-
 from typing import List, Optional
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -9,6 +8,7 @@ from backend.app.schemas.agent_call import (
     AgentCallCreate,
     AgentCallUpdate,
 )
+from backend.app.utils.phone import normalize_phone
 
 
 def create_agent_call(
@@ -17,11 +17,14 @@ def create_agent_call(
     organization_id: int,
     call_data: AgentCallCreate,
 ) -> AgentCall:
+    phone_normalized, phone_extension = normalize_phone(call_data.caller_phone)
     agent_call = AgentCall(
         agent_id=agent_id,
         organization_id=organization_id,
         caller_name=call_data.caller_name,
         caller_phone=call_data.caller_phone,
+        caller_phone_normalized=phone_normalized,
+        caller_phone_extension=phone_extension,
         direction=call_data.direction or "inbound",
         status="queued",
     )
@@ -77,6 +80,11 @@ def update_agent_call(
 
     for field, value in update_data.items():
         setattr(agent_call, field, value)
+
+    if "caller_phone" in update_data:
+        norm_phone, ext = normalize_phone(agent_call.caller_phone)
+        agent_call.caller_phone_normalized = norm_phone
+        agent_call.caller_phone_extension = ext
 
     try:
         db.commit()

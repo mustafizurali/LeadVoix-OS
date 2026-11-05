@@ -4,7 +4,13 @@ from sqlalchemy.orm import Session
 from backend.app.db.database import get_db
 from backend.app.models.user import User
 from backend.app.models.lead import Lead
-from backend.app.schemas.lead import LeadCreate, LeadResponse, LeadUpdate
+from backend.app.schemas.lead import (
+    LeadCreate,
+    LeadResponse,
+    LeadUpdate,
+    LeadConvertRequest,
+    LeadConvertResponse,
+)
 
 from backend.app.services.lead import (
     create_lead,
@@ -12,6 +18,7 @@ from backend.app.services.lead import (
     get_leads,
     update_lead,
     get_lead_calls,
+    convert_lead,
 )
 
 from backend.app.utils.dependencies import get_current_user
@@ -159,5 +166,28 @@ def read_lead_calls(
     return get_lead_calls(
         db=db,
         lead_id=lead_id,
+        current_user=current_user,
+    )
+
+
+# ============================================================
+# CONVERT LEAD
+# ============================================================
+
+@router.post(
+    "/{lead_id}/convert",
+    response_model=LeadConvertResponse,
+    status_code=status.HTTP_200_OK,
+)
+def convert_lead_endpoint(
+    lead_id: int,
+    convert_data: LeadConvertRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return convert_lead(
+        db=db,
+        lead_id=lead_id,
+        convert_data=convert_data,
         current_user=current_user,
     )

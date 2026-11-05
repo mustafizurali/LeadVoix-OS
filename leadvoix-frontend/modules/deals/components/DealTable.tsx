@@ -1,6 +1,14 @@
 "use client";
 
+import { DollarSign, Edit2, Trash2, Calendar, GitFork } from "lucide-react";
 import { Deal } from "../types/deal.types";
+import {
+  SecondaryButton,
+  DangerButton,
+  StatusBadge,
+  TableSkeleton,
+  EmptyState,
+} from "@/components/crm";
 
 interface DealTableProps {
   deals: Deal[];
@@ -10,6 +18,18 @@ interface DealTableProps {
   onDelete: (deal: Deal) => void;
   pipelineNames?: Record<number, string>;
   stageNames?: Record<number, string>;
+}
+
+function formatCurrency(amount: number, currency: string = "USD") {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency || "USD",
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${currency} ${Number(amount).toFixed(2)}`;
+  }
 }
 
 export default function DealTable({
@@ -22,90 +42,133 @@ export default function DealTable({
   stageNames = {},
 }: DealTableProps) {
   if (isLoading) {
-    return <div>Loading deals...</div>;
+    return <TableSkeleton rows={5} cols={7} />;
   }
 
   if (isError) {
-    return <div>Failed to load deals.</div>;
+    return (
+      <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-6 text-sm text-rose-400">
+        Failed to load deals. Please refresh or check your connection.
+      </div>
+    );
   }
 
   if (!deals || deals.length === 0) {
-    return <div>No deals found.</div>;
+    return (
+      <EmptyState
+        title="No deals found"
+        description="No sales opportunities match the selected criteria. Create a new deal to track pipeline progress."
+        icon={DollarSign}
+      />
+    );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="border-b">
-            <th className="p-3 text-left">Title</th>
-            <th className="p-3 text-left">Amount</th>
-            <th className="p-3 text-left">Currency</th>
-            <th className="p-3 text-left">Status</th>
-            <th className="p-3 text-left">Pipeline</th>
-            <th className="p-3 text-left">Stage</th>
-            <th className="p-3 text-left">Expected Close</th>
-            <th className="p-3 text-left">Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {deals.map((deal) => (
-            <tr
-              key={deal.id}
-              className="border-b hover:bg-gray-50"
-            >
-              <td className="p-3">{deal.title}</td>
-
-              <td className="p-3">
-                {Number(deal.amount).toFixed(2)}
-              </td>
-
-              <td className="p-3">
-                {deal.currency}
-              </td>
-
-              <td className="p-3">
-                {deal.status}
-              </td>
-
-              <td className="p-3">
-                {deal.pipeline_id
-                  ? pipelineNames[deal.pipeline_id] ?? deal.pipeline_id
-                  : "-"}
-              </td>
-
-              <td className="p-3">
-                {deal.stage_id
-                  ? stageNames[deal.stage_id] ?? deal.stage_id
-                  : "-"}
-              </td>
-
-              <td className="p-3">
-                {deal.expected_close_date ?? "-"}
-              </td>
-
-              <td className="p-3">
-                <button
-                  type="button"
-                  onClick={() => onEdit(deal)}
-                  className="mr-2 rounded bg-blue-600 px-3 py-1 text-white"
-                >
-                  Edit
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onDelete(deal)}
-                  className="rounded bg-red-600 px-3 py-1 text-white"
-                >
-                  Delete
-                </button>
-              </td>
+    <div className="overflow-hidden rounded-xl border border-[#273449] bg-[#151D32] shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-[#273449] text-left text-sm">
+          <thead className="bg-[#0E1528] text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
+            <tr>
+              <th className="px-6 py-3.5">Deal Title</th>
+              <th className="px-6 py-3.5">Amount</th>
+              <th className="px-6 py-3.5">Status</th>
+              <th className="px-6 py-3.5">Pipeline</th>
+              <th className="px-6 py-3.5">Stage</th>
+              <th className="px-6 py-3.5">Expected Close</th>
+              <th className="px-6 py-3.5 text-right">Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody className="divide-y divide-[#273449]">
+            {deals.map((deal) => {
+              const pipelineName = deal.pipeline_id
+                ? pipelineNames[deal.pipeline_id] ?? `Pipeline #${deal.pipeline_id}`
+                : null;
+              const stageName = deal.stage_id
+                ? stageNames[deal.stage_id] ?? `Stage #${deal.stage_id}`
+                : null;
+
+              return (
+                <tr
+                  key={deal.id}
+                  className="transition hover:bg-[#1E293B]/40"
+                >
+                  <td className="px-6 py-4">
+                    <div className="font-medium text-[#F5F7FC]">
+                      {deal.title}
+                    </div>
+                    {deal.description && (
+                      <div className="mt-0.5 max-w-xs truncate text-xs text-[#94A3B8]">
+                        {deal.description}
+                      </div>
+                    )}
+                  </td>
+
+                  <td className="px-6 py-4 font-mono font-medium text-[#F5F7FC]">
+                    {formatCurrency(Number(deal.amount), deal.currency)}
+                  </td>
+
+                  <td className="px-6 py-4">
+                    <StatusBadge status={deal.status} />
+                  </td>
+
+                  <td className="px-6 py-4">
+                    {pipelineName ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs text-[#F5F7FC]">
+                        <GitFork className="h-3 w-3 text-[#7657F6]" />
+                        {pipelineName}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-[#94A3B8]">—</span>
+                    )}
+                  </td>
+
+                  <td className="px-6 py-4">
+                    {stageName ? (
+                      <span className="inline-flex rounded-full bg-[#0E1528] border border-[#273449] px-2.5 py-0.5 text-xs font-medium text-[#F5F7FC]">
+                        {stageName}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-[#94A3B8]">—</span>
+                    )}
+                  </td>
+
+                  <td className="px-6 py-4">
+                    {deal.expected_close_date ? (
+                      <span className="inline-flex items-center gap-1.5 font-mono text-xs text-[#94A3B8]">
+                        <Calendar className="h-3 w-3 text-[#94A3B8]" />
+                        {deal.expected_close_date}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-[#94A3B8]">—</span>
+                    )}
+                  </td>
+
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <SecondaryButton
+                        size="sm"
+                        onClick={() => onEdit(deal)}
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                        Edit
+                      </SecondaryButton>
+
+                      <DangerButton
+                        size="sm"
+                        onClick={() => onDelete(deal)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </DangerButton>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -46,6 +46,12 @@ def create_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if current_user.organization_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is not assigned to any organization",
+        )
+
     agent_call = (
         db.query(AgentCall)
         .filter(
@@ -63,9 +69,10 @@ def create_task(
         )
 
     return create_follow_up_task(
-        db,
-        call_id,
-        task_data,
+        db=db,
+        organization_id=current_user.organization_id,
+        agent_call_id=call_id,
+        task_data=task_data,
     )
 
 
@@ -79,6 +86,12 @@ def get_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if current_user.organization_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is not assigned to any organization",
+        )
+
     agent_call = (
         db.query(AgentCall)
         .filter(
@@ -96,8 +109,9 @@ def get_tasks(
         )
 
     return get_follow_up_tasks_by_call(
-        db,
-        call_id,
+        db=db,
+        agent_call_id=call_id,
+        organization_id=current_user.organization_id,
     )
 
 
@@ -113,6 +127,12 @@ def update_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if current_user.organization_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is not assigned to any organization",
+        )
+
     agent_call = (
         db.query(AgentCall)
         .filter(
@@ -130,8 +150,9 @@ def update_task(
         )
 
     task = get_follow_up_task(
-        db,
-        task_id,
+        db=db,
+        task_id=task_id,
+        organization_id=current_user.organization_id,
     )
 
     if (
@@ -144,7 +165,8 @@ def update_task(
         )
 
     return update_follow_up_task(
-        db,
-        task,
-        task_data,
+        db=db,
+        task=task,
+        task_data=task_data,
+        organization_id=current_user.organization_id,
     )

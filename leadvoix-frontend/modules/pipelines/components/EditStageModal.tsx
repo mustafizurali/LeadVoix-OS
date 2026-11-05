@@ -4,13 +4,20 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { updatePipelineStage } from "../api/pipelineApi";
-import type { PipelineStage, PipelineStageType, UpdateStagePayload } from "../types/pipeline.types";
+import type {
+  PipelineStage,
+  PipelineStageType,
+  UpdateStagePayload,
+} from "../types/pipeline.types";
 import PipelineStageForm from "./PipelineStageForm";
+import { Modal, PrimaryButton, SecondaryButton } from "@/components/crm";
+import { getErrorMessage } from "@/lib/api/errors";
 
 interface EditStageModalProps {
   open: boolean;
   onClose: () => void;
   stage: PipelineStage | null;
+  existingPositions?: number[];
 }
 
 const emptyForm: UpdateStagePayload = {
@@ -27,9 +34,11 @@ export default function EditStageModal({
   open,
   onClose,
   stage,
+  existingPositions = [],
 }: EditStageModalProps) {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<UpdateStagePayload>(emptyForm);
 
   useEffect(() => {
@@ -43,11 +52,14 @@ export default function EditStageModal({
         sla_days: stage.sla_days,
         is_active: stage.is_active,
       });
+      setError(null);
     }
   }, [stage]);
 
   const handleChange = (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    event: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value, type } = event.target;
 
@@ -57,35 +69,60 @@ export default function EditStageModal({
         type === "number"
           ? Number(value)
           : name === "stage_type"
-            ? (value as PipelineStageType)
-            : value,
+          ? (value as PipelineStageType)
+          : value,
+    }));
+  };
+
+  const handleToggleActive = (checked: boolean) => {
+    setForm((previous) => ({
+      ...previous,
+      is_active: checked,
     }));
   };
 
   const handleSubmit = async () => {
     if (!stage) return;
     if (!form.name?.trim()) {
-      alert("Stage name is required");
+      setError("Stage name is required");
+      return;
+    }
+
+    const pos = Number(form.position);
+    if (isNaN(pos) || pos < 0) {
+      setError("Position index must be a non-negative number");
+      return;
+    }
+
+    if (existingPositions.includes(pos)) {
+      setError(
+        `A stage already exists at position ${pos}. Please choose a different position index.`
+      );
       return;
     }
 
     try {
       setLoading(true);
+      setError(null);
       await updatePipelineStage(stage.id, {
         name: form.name.trim(),
-        position: typeof form.position === "number" ? form.position : undefined,
+        position: pos,
         color: form.color || undefined,
         stage_type: form.stage_type,
-        probability: typeof form.probability === "number" ? form.probability : undefined,
+        probability:
+          typeof form.probability === "number" ? form.probability : undefined,
         sla_days: typeof form.sla_days === "number" ? form.sla_days : undefined,
-        is_active: typeof form.is_active === "boolean" ? form.is_active : undefined,
+        is_active:
+          typeof form.is_active === "boolean" ? form.is_active : undefined,
       });
 
-      await queryClient.invalidateQueries({ queryKey: ["pipeline-stages"],});
+      await queryClient.invalidateQueries({ queryKey: ["pipeline-stages"] });
       onClose();
-    } catch (error) {
-      console.error(error);
-      alert("Failed to update pipeline stage");
+    } catch (err: unknown) {
+      console.error(err);
+      setError(
+        getErrorMessage(err, "Failed to update pipeline stage. Please try again.")
+      );
     } finally {
       setLoading(false);
     }
@@ -94,43 +131,29 @@ export default function EditStageModal({
   if (!open || !stage) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-slate-900">Edit Stage</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-2xl text-slate-500 transition hover:text-slate-900"
-          >
-            ×
-          </button>
-        </div>
-
+    <Modal
+      isOpen={open}
+      onClose={onClose}
+      title={`Edit Stage: ${stage.name}`}
+      maxWidth="max-w-xl"
+    >
+      <div className="space-y-6">
         <PipelineStageForm
           form={form}
           onChange={handleChange}
-          onToggleActive={(checked) => setForm((previous) => ({ ...previous, is_active: checked }))}
+          onToggleActive={handleToggleActive}
+          error={error || undefined}
         />
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-slate-300 px-5 py-2.5 text-slate-700 transition hover:bg-slate-100"
-          >
+        <div className="flex justify-end gap-3 border-t border-[#273449] pt-4">
+          <SecondaryButton onClick={onClose} disabled={loading}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={loading}
-            className="rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? "Updating..." : "Update Stage"}
-          </button>
+          </SecondaryButton>
+          <PrimaryButton onClick={handleSubmit} loading={loading}>
+            Save Changes
+          </PrimaryButton>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

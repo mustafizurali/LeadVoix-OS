@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { createPipelineStage } from "../api/pipelineApi";
@@ -9,19 +9,24 @@ import type {
   PipelineStageType,
 } from "../types/pipeline.types";
 import PipelineStageForm from "./PipelineStageForm";
+import { Modal, PrimaryButton, SecondaryButton } from "@/components/crm";
+import { getErrorMessage } from "@/lib/api/errors";
 
 interface CreateStageModalProps {
   open: boolean;
   onClose: () => void;
   pipelineId: number;
+  defaultPosition?: number;
+  existingPositions?: number[];
 }
 
 const getEmptyForm = (
-  pipelineId: number
+  pipelineId: number,
+  defaultPosition = 0
 ): CreateStagePayload => ({
   pipeline_id: pipelineId,
   name: "",
-  position: 0,
+  position: defaultPosition,
   color: "#64748b",
   stage_type: "NORMAL",
   probability: 0,
@@ -33,14 +38,22 @@ export default function CreateStageModal({
   open,
   onClose,
   pipelineId,
+  defaultPosition = 0,
+  existingPositions = [],
 }: CreateStageModalProps) {
   const queryClient = useQueryClient();
-
   const [loading, setLoading] = useState(false);
-
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<CreateStagePayload>(() =>
-    getEmptyForm(pipelineId)
+    getEmptyForm(pipelineId, defaultPosition)
   );
+
+  useEffect(() => {
+    if (open) {
+      setForm(getEmptyForm(pipelineId, defaultPosition));
+      setError(null);
+    }
+  }, [open, pipelineId, defaultPosition]);
 
   const handleChange = (
     event: React.ChangeEvent<
@@ -51,7 +64,6 @@ export default function CreateStageModal({
 
     setForm((previous) => ({
       ...previous,
-
       [name]:
         type === "number"
           ? Number(value)
@@ -69,23 +81,38 @@ export default function CreateStageModal({
   };
 
   const handleClose = () => {
-    setForm(getEmptyForm(pipelineId));
+    setError(null);
+    setForm(getEmptyForm(pipelineId, defaultPosition));
     onClose();
   };
 
   const handleSubmit = async () => {
     if (!form.name.trim()) {
-      alert("Stage name is required");
+      setError("Stage name is required");
+      return;
+    }
+
+    const pos = Number(form.position);
+    if (isNaN(pos) || pos < 0) {
+      setError("Position index must be a non-negative number");
+      return;
+    }
+
+    if (existingPositions.includes(pos)) {
+      setError(
+        `A stage already exists at position ${pos}. Please choose a different position index.`
+      );
       return;
     }
 
     try {
       setLoading(true);
+      setError(null);
 
       await createPipelineStage(pipelineId, {
         pipeline_id: pipelineId,
         name: form.name.trim(),
-        position: Number(form.position),
+        position: pos,
         color: form.color || undefined,
         stage_type: form.stage_type,
         probability: Number(form.probability),
@@ -97,72 +124,39 @@ export default function CreateStageModal({
         queryKey: ["pipeline-stages"],
       });
 
-      setForm(getEmptyForm(pipelineId));
-
-      onClose();
-    } catch (error) {
-      console.error("Failed to create pipeline stage:", error);
-
-      alert("Failed to create pipeline stage");
+      handleClose();
+    } catch (err: unknown) {
+      console.error(err);
+      setError(getErrorMessage(err, "Failed to create stage. Please try again."));
     } finally {
       setLoading(false);
     }
   };
 
-  if (!open) {
-    return null;
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">
-              Create Stage
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Add a new stage to this pipeline.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={loading}
-            className="text-2xl text-slate-500 transition hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            ×
-          </button>
-        </div>
-
+    <Modal
+      isOpen={open}
+      onClose={handleClose}
+      title="Create Pipeline Stage"
+      maxWidth="max-w-xl"
+    >
+      <div className="space-y-6">
         <PipelineStageForm
           form={form}
           onChange={handleChange}
           onToggleActive={handleToggleActive}
+          error={error || undefined}
         />
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={loading}
-            className="rounded-lg border border-slate-300 px-5 py-2.5 text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+        <div className="flex justify-end gap-3 border-t border-[#273449] pt-4">
+          <SecondaryButton onClick={handleClose} disabled={loading}>
             Cancel
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={loading}
-            className="rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? "Creating..." : "Create Stage"}
-          </button>
+          </SecondaryButton>
+          <PrimaryButton onClick={handleSubmit} loading={loading}>
+            Create Stage
+          </PrimaryButton>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

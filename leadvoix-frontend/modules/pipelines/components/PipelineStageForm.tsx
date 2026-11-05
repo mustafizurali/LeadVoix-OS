@@ -5,6 +5,7 @@ import type {
   PipelineStageType,
   UpdateStagePayload,
 } from "../types/pipeline.types";
+import { FormField } from "@/components/crm";
 
 const STAGE_TYPES: PipelineStageType[] = ["NORMAL", "OPEN", "WON", "LOST"];
 
@@ -14,119 +15,112 @@ interface PipelineStageFormProps {
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => void;
   onToggleActive?: (checked: boolean) => void;
+  error?: string;
 }
 
 export default function PipelineStageForm({
   form,
   onChange,
   onToggleActive,
+  error,
 }: PipelineStageFormProps) {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <div className="md:col-span-2">
-        <label className="mb-1 block text-sm font-medium text-slate-700">
-          Stage Name
-        </label>
-        <input
-          type="text"
-          name="name"
-          placeholder="Stage Name"
-          value={form.name ?? ""}
-          onChange={onChange}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-        />
-      </div>
+    <div className="space-y-4">
+      {error && (
+        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-400">
+          {error}
+        </div>
+      )}
 
-      <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">
-          Position
-        </label>
-        <input
-          type="number"
+      <FormField
+        label="Stage Name"
+        name="name"
+        value={form.name ?? ""}
+        onChange={onChange}
+        placeholder="e.g. Discovery Call Scheduled"
+        required
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FormField
+          label="Position Index"
           name="position"
+          type="number"
           min={0}
           step={1}
           value={form.position ?? 0}
           onChange={onChange}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          helperText="Determines column/order sequence in pipeline"
         />
-      </div>
 
-      <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">
-          Color
-        </label>
-        <input
-          type="color"
-          name="color"
-          value={form.color ?? "#64748b"}
-          onChange={onChange}
-          className="h-11 w-full cursor-pointer rounded-lg border border-slate-300 bg-white p-1"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">
-          Stage Type
-        </label>
-        <select
+        <FormField
+          label="Stage Type"
           name="stage_type"
+          as="select"
           value={form.stage_type ?? "NORMAL"}
           onChange={onChange}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-        >
-          {STAGE_TYPES.map((stageType) => (
-            <option key={stageType} value={stageType}>
-              {stageType}
-            </option>
-          ))}
-        </select>
+          options={STAGE_TYPES.map((t) => ({ value: t, label: t }))}
+        />
       </div>
 
-      <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">
-          Probability (%)
-        </label>
-        <input
-          type="number"
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FormField
+          label="Win Probability (%)"
           name="probability"
+          type="number"
           min={0}
           max={100}
           step={1}
           value={form.probability ?? 0}
           onChange={onChange}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         />
-      </div>
 
-      <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">
-          SLA Days
-        </label>
-        <input
-          type="number"
+        <FormField
+          label="SLA Target (Days)"
           name="sla_days"
+          type="number"
           min={0}
           step={1}
           value={form.sla_days ?? 0}
           onChange={onChange}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          helperText="Target resolution timeframe"
         />
       </div>
 
-      {typeof onToggleActive === "function" && (
-        <div className="md:col-span-2">
-          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-            <input
-              type="checkbox"
-              checked={Boolean((form as UpdateStagePayload).is_active ?? true)}
-              onChange={(event) => onToggleActive(event.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-            />
-            Active
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-center">
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
+            Stage Color
           </label>
+          <div className="flex items-center gap-3 rounded-lg border border-[#273449] bg-[#0E1528] p-2">
+            <input
+              type="color"
+              name="color"
+              value={form.color ?? "#64748b"}
+              onChange={onChange}
+              className="h-8 w-12 cursor-pointer rounded border border-[#273449] bg-transparent"
+            />
+            <span className="font-mono text-sm text-[#F5F7FC]">
+              {form.color ?? "#64748b"}
+            </span>
+          </div>
         </div>
-      )}
+
+        {typeof onToggleActive === "function" && (
+          <div className="pt-4 sm:pt-6">
+            <label className="flex cursor-pointer items-center gap-2.5 text-sm font-medium text-[#F5F7FC]">
+              <input
+                type="checkbox"
+                name="is_active"
+                checked={Boolean(form.is_active ?? true)}
+                onChange={(event) => onToggleActive(event.target.checked)}
+                className="h-4 w-4 rounded border-[#273449] bg-[#0E1528] text-[#7657F6] focus:ring-[#7657F6]/30 focus:ring-offset-0"
+              />
+              Active Stage
+            </label>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 
 import DashboardLayout from "@/modules/dashboard/components/DashboardLayout";
 import TaskTable from "@/modules/tasks/components/TaskTable";
@@ -10,15 +11,25 @@ import {
   useTasks,
   useDeleteTask,
 } from "@/modules/tasks/hooks/useTasks";
-
 import type { Task } from "@/modules/tasks/types/task.types";
+import {
+  PageContainer,
+  PageHeader,
+  PrimaryButton,
+  SecondaryButton,
+  SearchInput,
+  FilterDropdown,
+  Modal,
+  ConfirmationDialog,
+} from "@/components/crm";
 
 export default function TasksPage() {
   const queryClient = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);
-  const [selectedTask, setSelectedTask] =
-    useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -33,18 +44,12 @@ export default function TasksPage() {
     priority,
   };
 
-  const {
-    data,
-    isLoading,
-    isError,
-  } = useTasks(filters);
-
+  const { data, isLoading, isError } = useTasks(filters);
   const deleteMutation = useDeleteTask();
 
   const handleTaskSuccess = () => {
     setShowForm(false);
     setSelectedTask(null);
-
     void queryClient.invalidateQueries({
       queryKey: ["tasks"],
     });
@@ -55,30 +60,20 @@ export default function TasksPage() {
     setShowForm(true);
   };
 
-  const handleDelete = async (task: Task) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${task.title}"?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
+  const handleConfirmDelete = async () => {
+    if (!taskToDelete) return;
 
     try {
-      await deleteMutation.mutateAsync(task.id);
-
+      setDeleteLoading(true);
+      await deleteMutation.mutateAsync(taskToDelete.id);
       await queryClient.invalidateQueries({
         queryKey: ["tasks"],
       });
+      setTaskToDelete(null);
     } catch (error) {
-      console.error(
-        "Failed to delete task:",
-        error
-      );
-
-      window.alert(
-        "Failed to delete task. Please try again."
-      );
+      console.error("Failed to delete task:", error);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -86,164 +81,133 @@ export default function TasksPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
-        {/* Header */}
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">
-              Tasks
-            </h1>
-
-            <p className="mt-2 text-slate-500">
-              Manage your tasks and follow-ups.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (showForm) {
-                setShowForm(false);
-                setSelectedTask(null);
-              } else {
+      <PageContainer>
+        <PageHeader
+          title="Tasks & Activities"
+          subtitle="Organize team follow-ups, meeting preparations, and deal action items."
+          badge="CRM"
+          action={
+            <PrimaryButton
+              onClick={() => {
                 setSelectedTask(null);
                 setShowForm(true);
-              }
-            }}
-            className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
-          >
-            {showForm ? "Cancel" : "Create Task"}
-          </button>
-        </div>
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              New Task
+            </PrimaryButton>
+          }
+        />
 
-        {/* Filters */}
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
-            placeholder="Search tasks..."
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 sm:max-w-md"
-          />
-
-          <select
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value);
-              setPage(1);
-            }}
-            className="rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          >
-            <option value="">
-              All Statuses
-            </option>
-
-            <option value="TODO">
-              To Do
-            </option>
-
-            <option value="IN_PROGRESS">
-              In Progress
-            </option>
-
-            <option value="DONE">
-              Done
-            </option>
-          </select>
-
-          <select
-            value={priority}
-            onChange={(event) => {
-              setPriority(event.target.value);
-              setPage(1);
-            }}
-            className="rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          >
-            <option value="">
-              All Priorities
-            </option>
-
-            <option value="LOW">
-              Low
-            </option>
-
-            <option value="MEDIUM">
-              Medium
-            </option>
-
-            <option value="HIGH">
-              High
-            </option>
-          </select>
-        </div>
-
-        {/* Create / Edit Form */}
-        {showForm && (
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-5 text-xl font-semibold text-slate-900">
-              {selectedTask
-                ? "Edit Task"
-                : "Create Task"}
-            </h2>
-
-            <TaskForm
-              key={selectedTask?.id ?? "create"}
-              task={selectedTask}
-              onSuccess={handleTaskSuccess}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex-1">
+            <SearchInput
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
+              placeholder="Search tasks by title or details..."
             />
           </div>
-        )}
 
-        {/* Task Table */}
+          <FilterDropdown
+            label="Status"
+            value={status}
+            onChange={(val) => {
+              setStatus(val);
+              setPage(1);
+            }}
+            options={[
+              { label: "All Statuses", value: "" },
+              { label: "To Do", value: "TODO" },
+              { label: "In Progress", value: "IN_PROGRESS" },
+              { label: "Done", value: "DONE" },
+            ]}
+          />
+
+          <FilterDropdown
+            label="Priority"
+            value={priority}
+            onChange={(val) => {
+              setPriority(val);
+              setPage(1);
+            }}
+            options={[
+              { label: "All Priorities", value: "" },
+              { label: "Low", value: "LOW" },
+              { label: "Medium", value: "MEDIUM" },
+              { label: "High", value: "HIGH" },
+            ]}
+          />
+        </div>
+
         <TaskTable
           tasks={data?.items ?? []}
           isLoading={isLoading}
           isError={isError}
           onEdit={handleEdit}
-          onDelete={handleDelete}
+          onDelete={(task) => setTaskToDelete(task)}
         />
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-slate-500">
-            Page {page} of {totalPages}
-          </span>
+        {data && totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-[#273449] pt-4 text-xs text-[#94A3B8]">
+            <span>
+              Page <span className="font-mono text-[#F5F7FC]">{page}</span> of{" "}
+              <span className="font-mono text-[#F5F7FC]">{totalPages}</span>
+            </span>
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                setPage((current) =>
-                  Math.max(1, current - 1)
-                )
-              }
-              disabled={page === 1}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Previous
-            </button>
+            <div className="flex items-center gap-2">
+              <SecondaryButton
+                size="sm"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={page === 1}
+              >
+                Previous
+              </SecondaryButton>
 
-            <button
-              type="button"
-              onClick={() =>
-                setPage((current) =>
-                  Math.min(
-                    totalPages,
-                    current + 1
-                  )
-                )
-              }
-              disabled={page >= totalPages}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Next
-            </button>
+              <SecondaryButton
+                size="sm"
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                disabled={page >= totalPages}
+              >
+                Next
+              </SecondaryButton>
+            </div>
           </div>
-        </div>
-      </div>
+        )}
+
+        <Modal
+          isOpen={showForm}
+          onClose={() => {
+            setShowForm(false);
+            setSelectedTask(null);
+          }}
+          title={selectedTask ? `Edit Task: ${selectedTask.title}` : "Create New Task"}
+          maxWidth="max-w-2xl"
+        >
+          <TaskForm
+            key={selectedTask?.id ?? "create"}
+            task={selectedTask}
+            onSuccess={handleTaskSuccess}
+            onCancel={() => {
+              setShowForm(false);
+              setSelectedTask(null);
+            }}
+          />
+        </Modal>
+
+        <ConfirmationDialog
+          isOpen={Boolean(taskToDelete)}
+          onClose={() => setTaskToDelete(null)}
+          onConfirm={handleConfirmDelete}
+          title="Delete Task"
+          message={`Are you sure you want to delete task "${taskToDelete?.title}"? This cannot be undone.`}
+          confirmLabel="Delete Task"
+          variant="danger"
+          loading={deleteLoading}
+        />
+      </PageContainer>
     </DashboardLayout>
   );
 }

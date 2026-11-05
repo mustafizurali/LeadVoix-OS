@@ -9,15 +9,18 @@ import { useLeads } from "@/modules/leads/hooks/useLeads";
 import { useContacts } from "@/modules/contacts/hooks/useContacts";
 import { useCompanies } from "@/modules/companies/hooks/useCompanies";
 import { useDeals } from "@/modules/deals/hooks/useDeals";
+import { FormField, PrimaryButton, SecondaryButton } from "@/components/crm";
 
 interface TaskFormProps {
   task?: Task | null;
   onSuccess: () => void;
+  onCancel?: () => void;
 }
 
 export default function TaskForm({
   task,
   onSuccess,
+  onCancel,
 }: TaskFormProps) {
   const isEditMode = Boolean(task);
 
@@ -38,25 +41,10 @@ export default function TaskForm({
 
   const [errorMessage, setErrorMessage] = useState("");
 
-  const { data: leadsData } = useLeads({
-    page: 1,
-    limit: 100,
-  });
-
-  const { data: contactsData } = useContacts({
-    page: 1,
-    limit: 100,
-  });
-
-  const { data: companiesData } = useCompanies({
-    page: 1,
-    limit: 100,
-  });
-
-  const { data: dealsData } = useDeals({
-    page: 1,
-    limit: 100,
-  });
+  const { data: leadsData } = useLeads({ page: 1, limit: 100 });
+  const { data: contactsData } = useContacts({ page: 1, limit: 100 });
+  const { data: companiesData } = useCompanies({ page: 1, limit: 100 });
+  const { data: dealsData } = useDeals({ page: 1, limit: 100 });
 
   useEffect(() => {
     if (task) {
@@ -65,36 +53,11 @@ export default function TaskForm({
       setPriority(task.priority ?? "MEDIUM");
       setStatus(task.status ?? "TODO");
       setDueDate(task.due_date ?? "");
-
-      setDealId(
-        task.deal_id !== null
-          ? String(task.deal_id)
-          : ""
-      );
-
-      setLeadId(
-        task.lead_id !== null
-          ? String(task.lead_id)
-          : ""
-      );
-
-      setContactId(
-        task.contact_id !== null
-          ? String(task.contact_id)
-          : ""
-      );
-
-      setCompanyId(
-        task.company_id !== null
-          ? String(task.company_id)
-          : ""
-      );
-
-      setAssignedTo(
-        task.assigned_to !== null
-          ? String(task.assigned_to)
-          : ""
-      );
+      setDealId(task.deal_id !== null ? String(task.deal_id) : "");
+      setLeadId(task.lead_id !== null ? String(task.lead_id) : "");
+      setContactId(task.contact_id !== null ? String(task.contact_id) : "");
+      setCompanyId(task.company_id !== null ? String(task.company_id) : "");
+      setAssignedTo(task.assigned_to !== null ? String(task.assigned_to) : "");
     } else {
       setTitle("");
       setDescription("");
@@ -107,17 +70,12 @@ export default function TaskForm({
       setCompanyId("");
       setAssignedTo("");
     }
-
     setErrorMessage("");
   }, [task]);
 
-  const isSubmitting =
-    createMutation.isPending ||
-    updateMutation.isPending;
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
-  const handleSubmit = async (
-    event: FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage("");
 
@@ -132,26 +90,11 @@ export default function TaskForm({
       priority,
       status,
       due_date: dueDate || undefined,
-
-      deal_id: dealId
-        ? Number(dealId)
-        : undefined,
-
-      lead_id: leadId
-        ? Number(leadId)
-        : undefined,
-
-      contact_id: contactId
-        ? Number(contactId)
-        : undefined,
-
-      company_id: companyId
-        ? Number(companyId)
-        : undefined,
-
-      assigned_to: assignedTo
-        ? Number(assignedTo)
-        : undefined,
+      deal_id: dealId ? Number(dealId) : undefined,
+      lead_id: leadId ? Number(leadId) : undefined,
+      contact_id: contactId ? Number(contactId) : undefined,
+      company_id: companyId ? Number(companyId) : undefined,
+      assigned_to: assignedTo ? Number(assignedTo) : undefined,
     };
 
     try {
@@ -163,11 +106,9 @@ export default function TaskForm({
       } else {
         await createMutation.mutateAsync(payload);
       }
-
       onSuccess();
     } catch (error) {
       console.error("Failed to save task:", error);
-
       setErrorMessage(
         "Failed to save task. Please check the selected records and try again."
       );
@@ -175,265 +116,150 @@ export default function TaskForm({
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-6"
-    >
+    <form onSubmit={handleSubmit} className="space-y-5">
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-400">
           {errorMessage}
         </div>
       )}
 
-      <div className="grid gap-5 md:grid-cols-2">
-        {/* Title */}
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="md:col-span-2">
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Title *
-          </label>
-
-          <input
-            type="text"
+          <FormField
+            label="Task Title"
+            name="title"
             value={title}
-            onChange={(event) =>
-              setTitle(event.target.value)
-            }
-            placeholder="Enter task title"
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. Follow up on proposal feedback"
             required
           />
         </div>
 
-        {/* Description */}
-        <div className="md:col-span-2">
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Description
-          </label>
+        <FormField
+          label="Priority"
+          name="priority"
+          as="select"
+          value={priority}
+          onChange={(e) => setPriority(e.target.value)}
+          options={[
+            { value: "LOW", label: "Low Priority" },
+            { value: "MEDIUM", label: "Medium Priority" },
+            { value: "HIGH", label: "High Priority" },
+          ]}
+        />
 
-          <textarea
-            value={description}
-            onChange={(event) =>
-              setDescription(event.target.value)
-            }
-            placeholder="Enter task description"
-            rows={4}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          />
-        </div>
+        <FormField
+          label="Status"
+          name="status"
+          as="select"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          options={[
+            { value: "TODO", label: "To Do" },
+            { value: "IN_PROGRESS", label: "In Progress" },
+            { value: "DONE", label: "Done" },
+          ]}
+        />
 
-        {/* Priority */}
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Priority
-          </label>
+        <FormField
+          label="Due Date"
+          name="dueDate"
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+        />
 
-          <select
-            value={priority}
-            onChange={(event) =>
-              setPriority(event.target.value)
-            }
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          >
-            <option value="LOW">Low</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="HIGH">High</option>
-          </select>
-        </div>
+        <FormField
+          label="Assigned User ID"
+          name="assignedTo"
+          type="number"
+          min="1"
+          value={assignedTo}
+          onChange={(e) => setAssignedTo(e.target.value)}
+          placeholder="User ID (optional)"
+          helperText="Leave empty if unassigned"
+        />
 
-        {/* Status */}
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Status
-          </label>
+        <FormField
+          label="Related Deal"
+          name="dealId"
+          as="select"
+          value={dealId}
+          onChange={(e) => setDealId(e.target.value)}
+          options={[
+            { value: "", label: "No Deal" },
+            ...(dealsData?.items?.map((d) => ({
+              value: String(d.id),
+              label: d.title,
+            })) ?? []),
+          ]}
+        />
 
-          <select
-            value={status}
-            onChange={(event) =>
-              setStatus(event.target.value)
-            }
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          >
-            <option value="TODO">To Do</option>
-            <option value="IN_PROGRESS">
-              In Progress
-            </option>
-            <option value="DONE">Done</option>
-          </select>
-        </div>
+        <FormField
+          label="Related Lead"
+          name="leadId"
+          as="select"
+          value={leadId}
+          onChange={(e) => setLeadId(e.target.value)}
+          options={[
+            { value: "", label: "No Lead" },
+            ...(leadsData?.items?.map((l) => ({
+              value: String(l.id),
+              label: `${l.first_name} ${l.last_name ?? ""}`.trim(),
+            })) ?? []),
+          ]}
+        />
 
-        {/* Due Date */}
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Due Date
-          </label>
+        <FormField
+          label="Related Contact"
+          name="contactId"
+          as="select"
+          value={contactId}
+          onChange={(e) => setContactId(e.target.value)}
+          options={[
+            { value: "", label: "No Contact" },
+            ...(contactsData?.items?.map((c) => ({
+              value: String(c.id),
+              label: `${c.first_name} ${c.last_name ?? ""}`.trim(),
+            })) ?? []),
+          ]}
+        />
 
-          <input
-            type="date"
-            value={dueDate}
-            onChange={(event) =>
-              setDueDate(event.target.value)
-            }
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          />
-        </div>
-
-        {/* Company */}
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Company
-          </label>
-
-          <select
-            value={companyId}
-            onChange={(event) =>
-              setCompanyId(event.target.value)
-            }
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          >
-            <option value="">
-              No Company
-            </option>
-
-            {companiesData?.items?.map(
-              (company) => (
-                <option
-                  key={company.id}
-                  value={company.id}
-                >
-                  {company.name}
-                </option>
-              )
-            )}
-          </select>
-        </div>
-
-        {/* Lead */}
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Lead
-          </label>
-
-          <select
-            value={leadId}
-            onChange={(event) =>
-              setLeadId(event.target.value)
-            }
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          >
-            <option value="">
-              No Lead
-            </option>
-
-            {leadsData?.items?.map(
-              (lead) => (
-                <option
-                  key={lead.id}
-                  value={lead.id}
-                >
-                  {lead.first_name}{" "}
-                  {lead.last_name}
-                </option>
-              )
-            )}
-          </select>
-        </div>
-
-        {/* Contact */}
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Contact
-          </label>
-
-          <select
-            value={contactId}
-            onChange={(event) =>
-              setContactId(event.target.value)
-            }
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          >
-            <option value="">
-              No Contact
-            </option>
-
-            {contactsData?.items?.map(
-              (contact) => (
-                <option
-                  key={contact.id}
-                  value={contact.id}
-                >
-                  {contact.first_name}{" "}
-                  {contact.last_name}
-                </option>
-              )
-            )}
-          </select>
-        </div>
-
-        {/* Deal */}
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Deal
-          </label>
-
-          <select
-            value={dealId}
-            onChange={(event) =>
-              setDealId(event.target.value)
-            }
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          >
-            <option value="">
-              No Deal
-            </option>
-
-            {dealsData?.items?.map(
-              (deal) => (
-                <option
-                  key={deal.id}
-                  value={deal.id}
-                >
-                  {deal.title}
-                </option>
-              )
-            )}
-          </select>
-        </div>
-
-        {/* Assigned To */}
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Assigned To
-          </label>
-
-          <input
-            type="number"
-            value={assignedTo}
-            onChange={(event) =>
-              setAssignedTo(event.target.value)
-            }
-            placeholder="User ID (optional)"
-            min="1"
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          />
-
-          <p className="mt-1 text-xs text-slate-500">
-            Leave empty if no assignee is available.
-          </p>
-        </div>
+        <FormField
+          label="Related Company"
+          name="companyId"
+          as="select"
+          value={companyId}
+          onChange={(e) => setCompanyId(e.target.value)}
+          options={[
+            { value: "", label: "No Company" },
+            ...(companiesData?.items?.map((c) => ({
+              value: String(c.id),
+              label: c.name,
+            })) ?? []),
+          ]}
+        />
       </div>
 
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isSubmitting
-            ? "Saving..."
-            : isEditMode
-              ? "Update Task"
-              : "Create Task"}
-        </button>
+      <FormField
+        label="Description / Checklist"
+        name="description"
+        as="textarea"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="Additional context, action items, or notes..."
+        rows={3}
+      />
+
+      <div className="flex items-center justify-end gap-3 border-t border-[#273449] pt-4">
+        {onCancel && (
+          <SecondaryButton type="button" onClick={onCancel} disabled={isSubmitting}>
+            Cancel
+          </SecondaryButton>
+        )}
+        <PrimaryButton type="submit" loading={isSubmitting}>
+          {isEditMode ? "Update Task" : "Create Task"}
+        </PrimaryButton>
       </div>
     </form>
   );

@@ -78,7 +78,7 @@ def create_task(
             )
 
     # Validate Company
-    if task.company_id  is not None:
+    if task.company_id is not None:
         company = (
             db.query(Company)
             .filter(
@@ -95,7 +95,7 @@ def create_task(
             )
 
     # Validate Assigned User
-    if task.assigned_to is not None :
+    if task.assigned_to is not None:
         assignee = (
             db.query(User)
             .filter(
@@ -122,6 +122,7 @@ def create_task(
         lead_id=task.lead_id,
         contact_id=task.contact_id,
         company_id=task.company_id,
+        agent_call_id=task.agent_call_id,
         assigned_to=task.assigned_to,
         created_by=current_user.id,
     )
@@ -131,12 +132,12 @@ def create_task(
     db.refresh(db_task)
 
     return db_task
-    
-    
+
+
 def get_tasks(
     db: Session,
     current_user: User,
-     search: str | None = None,
+    search: str | None = None,
     status: str | None = None,
     priority: str | None = None,
     assigned_to: int | None = None,
@@ -145,7 +146,7 @@ def get_tasks(
     limit: int = 10,
     sort_by: str = "created_at",
     order: str = "desc",
-    ):
+):
     if current_user.organization_id is None:
         raise HTTPException(
             status_code=400,
@@ -245,14 +246,15 @@ def get_task(
             detail="Task not found",
         )
 
-    return db_task 
+    return db_task
+
 
 def update_task(
     db: Session,
     task_id: int,
     task: TaskUpdate,
     current_user: User,
-    ):
+):
     if current_user.organization_id is None:
         raise HTTPException(
             status_code=400,
@@ -384,11 +386,12 @@ def update_task(
 
     return db_task
 
+
 def delete_task(
     db: Session,
     task_id: int,
     current_user: User,
-    ):
+):
     if current_user.organization_id is None:
         raise HTTPException(
             status_code=400,

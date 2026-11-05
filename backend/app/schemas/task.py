@@ -16,6 +16,7 @@ class TaskCreate(BaseModel):
     lead_id: Optional[int] = None
     contact_id: Optional[int] = None
     company_id: Optional[int] = None
+    agent_call_id: Optional[int] = None
     assigned_to: Optional[int] = None
 
 
@@ -30,6 +31,7 @@ class TaskUpdate(BaseModel):
     lead_id: Optional[int] = None
     contact_id: Optional[int] = None
     company_id: Optional[int] = None
+    agent_call_id: Optional[int] = None
     assigned_to: Optional[int] = None
 
 
@@ -50,6 +52,7 @@ class TaskResponse(BaseModel):
     lead_id: Optional[int]
     contact_id: Optional[int]
     company_id: Optional[int]
+    agent_call_id: Optional[int] = None
 
     assigned_to: Optional[int]
     created_by: int
@@ -61,10 +64,11 @@ class TaskResponse(BaseModel):
         from_attributes=True,
     )
 
+
 class TaskListResponse(BaseModel):
     items: list[TaskResponse]
 
     total: int
     page: int
     limit: int
-    total_pages: int  
+    total_pages: int

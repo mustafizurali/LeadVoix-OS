@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-
+import { Modal, PrimaryButton, SecondaryButton } from "@/components/crm";
 import { createContact } from "../api/contactApi";
 import { CreateContactPayload } from "../types/contact.types";
 import ContactForm from "./ContactForm";
@@ -17,8 +17,8 @@ export default function CreateContactModal({
   onClose,
 }: CreateContactModalProps) {
   const queryClient = useQueryClient();
-
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState<CreateContactPayload>({
     first_name: "",
@@ -29,9 +29,7 @@ export default function CreateContactModal({
   });
 
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setForm((prev) => ({
       ...prev,
@@ -47,23 +45,25 @@ export default function CreateContactModal({
       phone: "",
       company: "",
     });
+    setError(null);
   };
 
   const handleSubmit = async () => {
     if (!form.first_name.trim()) {
-      alert("First Name is required");
+      setError("First Name is required");
       return;
     }
 
     try {
       setLoading(true);
+      setError(null);
 
       const payload = {
         ...form,
-        last_name: form.last_name?.trim() || undefined,
         email: form.email?.trim() || undefined,
         phone: form.phone?.trim() || undefined,
         company: form.company?.trim() || undefined,
+        last_name: form.last_name?.trim() || undefined,
       };
 
       await createContact(payload);
@@ -73,58 +73,50 @@ export default function CreateContactModal({
       });
 
       resetForm();
-
       onClose();
-    } catch (error) {
-      console.error(error);
-      alert("Failed to create contact");
+    } catch (err: unknown) {
+      console.error(err);
+      setError("Failed to create contact. Please verify the information and try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-xl">
+    <Modal
+      open={open}
+      onClose={() => {
+        resetForm();
+        onClose();
+      }}
+      title="Create New Contact"
+      subtitle="Add an individual customer, stakeholder, or decision-maker."
+      maxWidth="2xl"
+    >
+      <div className="space-y-5">
+        {error && (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/15 p-3 text-xs text-red-300">
+            {error}
+          </div>
+        )}
 
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-3xl font-bold">
-            Create New Contact
-          </h2>
+        <ContactForm form={form} onChange={handleChange} />
 
-          <button
-            onClick={onClose}
-            className="text-2xl text-slate-500 hover:text-black"
-          >
-            ×
-          </button>
-        </div>
-
-        <ContactForm
-          form={form}
-          onChange={handleChange}
-        />
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="rounded-lg border px-5 py-2"
+        <div className="flex justify-end gap-3 pt-4 border-t border-[#273449]">
+          <SecondaryButton
+            onClick={() => {
+              resetForm();
+              onClose();
+            }}
+            disabled={loading}
           >
             Cancel
-          </button>
-
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="rounded-lg bg-blue-600 px-5 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? "Creating..." : "Create Contact"}
-          </button>
+          </SecondaryButton>
+          <PrimaryButton onClick={handleSubmit} loading={loading}>
+            Create Contact
+          </PrimaryButton>
         </div>
-
       </div>
-    </div>
+    </Modal>
   );
 }

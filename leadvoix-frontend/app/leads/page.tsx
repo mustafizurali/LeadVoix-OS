@@ -8,6 +8,7 @@ import LeadToolbar from "@/modules/leads/components/LeadToolbar";
 import LeadTable from "@/modules/leads/components/LeadTable";
 import CreateLeadModal from "@/modules/leads/components/CreateLeadModal";
 import EditLeadModal from "@/modules/leads/components/EditLeadModal";
+import { PageContainer, PageHeader, ConfirmationDialog } from "@/components/crm";
 
 import { deleteLead } from "@/modules/leads/api/leadApi";
 import { Lead } from "@/modules/leads/types/lead.types";
@@ -20,6 +21,10 @@ export default function LeadsPage() {
   const [search, setSearch] = useState("");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
+  // Confirmation dialog state
+  const [deleteConfirmLead, setDeleteConfirmLead] = useState<Lead | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const handleEditLead = (lead: Lead) => {
     setSelectedLead(lead);
     setOpenEdit(true);
@@ -30,39 +35,35 @@ export default function LeadsPage() {
     setSelectedLead(null);
   };
 
-  const handleDeleteLead = async (lead: Lead) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${lead.first_name}"?`
-    );
+  const handleDeleteLead = (lead: Lead) => {
+    setDeleteConfirmLead(lead);
+  };
 
-    if (!confirmed) return;
+  const confirmDelete = async () => {
+    if (!deleteConfirmLead) return;
 
     try {
-      await deleteLead(lead.id);
-
+      setIsDeleting(true);
+      await deleteLead(deleteConfirmLead.id);
       await queryClient.invalidateQueries({
         queryKey: ["leads"],
       });
-
-      alert("Lead deleted successfully.");
+      setDeleteConfirmLead(null);
     } catch (error) {
-      console.error(error);
-      alert("Failed to delete lead.");
+      console.error("Failed to delete lead:", error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold">
-            Leads
-          </h1>
-
-          <p className="mt-2 text-slate-500">
-            Manage all your sales leads.
-          </p>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Leads"
+          subtitle="Manage sales pipeline prospects and automated AI inbound contacts."
+          badge={{ label: "Sales Pipeline", variant: "cyan" }}
+        />
 
         <LeadToolbar
           onCreateLead={() => setOpenCreate(true)}
@@ -74,8 +75,9 @@ export default function LeadsPage() {
           search={search}
           onEditLead={handleEditLead}
           onDeleteLead={handleDeleteLead}
+          onCreateLead={() => setOpenCreate(true)}
         />
-      </div>
+      </PageContainer>
 
       <CreateLeadModal
         open={openCreate}
@@ -86,6 +88,16 @@ export default function LeadsPage() {
         open={openEdit}
         onClose={handleCloseEdit}
         lead={selectedLead}
+      />
+
+      <ConfirmationDialog
+        open={!!deleteConfirmLead}
+        onClose={() => setDeleteConfirmLead(null)}
+        onConfirm={confirmDelete}
+        title="Delete Lead Record"
+        description={`Are you sure you want to delete "${deleteConfirmLead?.first_name} ${deleteConfirmLead?.last_name || ""}"? This operation cannot be undone.`}
+        confirmLabel="Delete Lead"
+        loading={isDeleting}
       />
     </DashboardLayout>
   );

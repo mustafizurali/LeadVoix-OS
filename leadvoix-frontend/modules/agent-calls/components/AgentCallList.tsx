@@ -1,10 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
-  useMutation,
-  useQuery,
-} from "@tanstack/react-query";
+  PhoneCall,
+  PhoneOutgoing,
+  Clock,
+  Sparkles,
+  FileText,
+  Volume2,
+  X,
+  TrendingUp,
+  AlertTriangle,
+  Lightbulb,
+  Calendar,
+} from "lucide-react";
 
 import {
   analyzeAgentCall,
@@ -17,33 +27,38 @@ import {
   AgentCall,
   AgentCallIntelligence,
 } from "../types/agentCall.types";
+import {
+  PrimaryButton,
+  SecondaryButton,
+  StatusBadge,
+  EmptyState,
+} from "@/components/crm";
 
 interface AgentCallListProps {
   agentId: number;
 }
 
-export default function AgentCallList({
-  agentId,
-}: AgentCallListProps) {
-  const [selectedCall, setSelectedCall] =
-    useState<AgentCall | null>(null);
+function formatCallDuration(seconds: number | null | undefined): string {
+  if (!seconds || seconds <= 0) return "0s";
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  if (mins === 0) return `${secs}s`;
+  if (secs === 0) return `${mins}m`;
+  return `${mins}m ${secs}s`;
+}
 
-  const [intelligence, setIntelligence] =
-    useState<AgentCallIntelligence | null>(null);
+export default function AgentCallList({ agentId }: AgentCallListProps) {
+  const [selectedCall, setSelectedCall] = useState<AgentCall | null>(null);
+  const [intelligence, setIntelligence] = useState<AgentCallIntelligence | null>(null);
 
-    const [phoneNumber, setPhoneNumber] = useState("");
-    const [callError, setCallError] = useState<string | null>(null);
-    const [callSuccess, setCallSuccess] = useState<string | null>(null);
-  /*
-   * Store analyzed intelligence by call ID.
-   * Backend currently does not provide a GET intelligence endpoint.
-   */
-  const [intelligenceByCall, setIntelligenceByCall] =
-    useState<Record<number, AgentCallIntelligence>>({});
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [callError, setCallError] = useState<string | null>(null);
+  const [callSuccess, setCallSuccess] = useState<string | null>(null);
 
-  /*
-   * GET AGENT CALLS
-   */
+  const [intelligenceByCall, setIntelligenceByCall] = useState<
+    Record<number, AgentCallIntelligence>
+  >({});
+
   const {
     data: calls,
     isLoading,
@@ -55,662 +70,515 @@ export default function AgentCallList({
     enabled: !!agentId,
   });
 
-  /*
- * MAKE AI CALL
- */
-const makeCallMutation = useMutation({
-  mutationFn: async (toNumber: string) => {
-    // Create the call record first
-    const agentCall = await createAgentCall(agentId, {
-      caller_phone: toNumber,
-      direction: "outbound",
-    });
+  const makeCallMutation = useMutation({
+    mutationFn: async (toNumber: string) => {
+      const agentCall = await createAgentCall(agentId, {
+        caller_phone: toNumber,
+        direction: "outbound",
+      });
 
-    // Then initiate the real Twilio call
-    const initiatedCall = await initiateAgentCall(
-      agentId,
-      agentCall.id,
-      toNumber
-    );
+      const initiatedCall = await initiateAgentCall(
+        agentId,
+        agentCall.id,
+        toNumber
+      );
 
-    return initiatedCall;
-  },
+      return initiatedCall;
+    },
+    onSuccess: async () => {
+      setPhoneNumber("");
+      setCallError(null);
+      setCallSuccess("Outbound call dispatched. Telephony carrier will connect shortly.");
+      await refetch();
+    },
+    onError: (error: unknown) => {
+      console.error("Failed to initiate AI call:", error);
+      setCallSuccess(null);
 
-  onSuccess: async () => {
-    setPhoneNumber("");
-    setCallError(null);
-    setCallSuccess(
-      "Call initiated successfully. The phone should ring shortly."
-    );
+      const errObj = error as { response?: { data?: { detail?: unknown } } };
+      const detail = errObj?.response?.data?.detail;
 
-    await refetch();
-  },
+      if (Array.isArray(detail)) {
+        setCallError(
+          detail
+            .map((item: { msg?: string }) => item?.msg || "Validation error")
+            .join(", ")
+        );
+      } else if (typeof detail === "string") {
+        setCallError(detail);
+      } else {
+        setCallError("Failed to initiate call. Check telephone carrier logs or number formatting.");
+      }
+    },
+  });
 
-  onError: (error: any) => {
-  console.error("Failed to initiate AI call:", error);
-
-  console.error(
-    "Backend error:",
-    error?.response?.data
-  );
-
-  setCallSuccess(null);
-
-  const detail = error?.response?.data?.detail;
-
-  if (Array.isArray(detail)) {
-    setCallError(
-      detail
-        .map((item: any) => item?.msg || "Validation error")
-        .join(", ")
-    );
-  } else if (typeof detail === "string") {
-    setCallError(detail);
-  } else {
-    setCallError(
-      "Failed to start the call. Please check the backend logs."
-    );
-  }
-},
-});
-  /*
-   * ANALYZE CALL
-   */
   const analyzeMutation = useMutation({
-    mutationFn: (callId: number) =>
-      analyzeAgentCall(agentId, callId),
-
+    mutationFn: (callId: number) => analyzeAgentCall(agentId, callId),
     onSuccess: (data) => {
       setIntelligence(data);
-
       setIntelligenceByCall((prev) => ({
         ...prev,
         [data.agent_call_id]: data,
       }));
     },
-
     onError: (error) => {
-      console.error(
-        "Call intelligence analysis failed:",
-        error
-      );
+      console.error("Call intelligence analysis failed:", error);
     },
   });
 
-  /*
-   * VIEW DETAILS
-   */
   const handleViewDetails = (call: AgentCall) => {
     setSelectedCall(call);
-
-    setIntelligence(
-      intelligenceByCall[call.id] ?? null
-    );
-
+    setIntelligence(intelligenceByCall[call.id] ?? null);
     analyzeMutation.reset();
   };
 
-  /*
- * HANDLE MAKE AI CALL
- */
-const handleMakeCall = () => {
-  const number = phoneNumber.trim();
+  const handleMakeCall = () => {
+    const number = phoneNumber.trim();
+    setCallError(null);
+    setCallSuccess(null);
 
-  setCallError(null);
-  setCallSuccess(null);
+    if (!number) {
+      setCallError("Please enter a customer phone number.");
+      return;
+    }
 
-  if (!number) {
-    setCallError("Please enter a phone number.");
-    return;
-  }
+    if (!/^\+?[1-9]\d{7,14}$/.test(number)) {
+      setCallError(
+        "Please enter a valid E.164 phone number with country code, e.g. +14155552671 or +919876543210."
+      );
+      return;
+    }
 
-  // Basic E.164-style validation
-  if (!/^\+?[1-9]\d{7,14}$/.test(number)) {
-    setCallError(
-      "Please enter a valid phone number with country code, for example +919876543210."
-    );
-    return;
-  }
+    makeCallMutation.mutate(number);
+  };
 
-  makeCallMutation.mutate(number);
-};
-  /*
-   * ANALYZE SELECTED CALL
-   */
   const handleAnalyzeCall = () => {
     if (!selectedCall) return;
-
     analyzeMutation.mutate(selectedCall.id);
   };
 
-  /*
-   * CLOSE MODAL
-   */
   const closeDetails = () => {
     setSelectedCall(null);
     setIntelligence(null);
-
     analyzeMutation.reset();
   };
 
-  /*
-   * LOADING
-   */
   if (isLoading) {
     return (
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <p className="text-sm text-slate-500">
-          Loading calls...
-        </p>
+      <div className="rounded-xl border border-[#273449] bg-[#151D32] p-8 text-center text-sm text-[#94A3B8]">
+        Loading telephony logs and call records...
       </div>
     );
   }
 
-  /*
-   * ERROR
-   */
   if (isError) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6">
-        <p className="text-sm text-red-600">
-          Failed to load calls.
-        </p>
+      <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-6 text-sm text-rose-400">
+        Failed to load calls for this agent. Please verify connection.
       </div>
     );
   }
+
   return (
     <>
-
- {/* MAKE AI CALL */}
-<div className="mb-6 rounded-xl border border-blue-100 bg-blue-50 p-6 shadow-sm">
-  <div>
-    <h2 className="text-lg font-semibold text-slate-900">
-      Make AI Call
-    </h2>
-
-    <p className="mt-1 text-sm text-slate-600">
-      Enter a customer phone number and let your LeadVoix AI
-      voice agent make the call.
-    </p>
-  </div>
-
-  <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-end">
-    <div className="flex-1">
-      <label
-        htmlFor="ai-call-phone"
-        className="mb-2 block text-sm font-medium text-slate-700"
-      >
-        Customer Phone Number
-      </label>
-
-      <input
-        id="ai-call-phone"
-        type="tel"
-        value={phoneNumber}
-        onChange={(event) => {
-          setPhoneNumber(event.target.value);
-          setCallError(null);
-          setCallSuccess(null);
-        }}
-        placeholder="+919876543210"
-        disabled={makeCallMutation.isPending}
-        className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
-      />
-    </div>
-
-    <button
-      type="button"
-      onClick={handleMakeCall}
-      disabled={makeCallMutation.isPending}
-      className="rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-    >
-      {makeCallMutation.isPending
-        ? "Calling..."
-        : "Call with LeadVoix AI"}
-    </button>
-  </div>
-
-  <p className="mt-3 text-xs text-slate-500">
-    Enter the phone number with country code, for example
-    +919876543210.
-  </p>
-
-  {callError && (
-    <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
-      <p className="text-sm text-red-600">
-        {callError}
-      </p>
-    </div>
-  )}
-
-  {callSuccess && (
-    <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3">
-      <p className="text-sm text-green-700">
-        {callSuccess}
-      </p>
-    </div>
-  )}
-</div>
-      {/* CALL LIST */}
-
-      <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
-        {/* HEADER */}
-
-        <div className="border-b px-6 py-5">
-          <h2 className="text-lg font-semibold text-slate-900">
-            Agent Calls
-          </h2>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Call history for this agent.
-          </p>
+      {/* OUTBOUND AI DIALER CARD */}
+      <div className="mb-8 rounded-xl border border-[#7657F6]/30 bg-gradient-to-r from-[#151D32] to-[#1a1c38] p-6 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#7657F6]/10 border border-[#7657F6]/20 text-[#7657F6]">
+            <PhoneOutgoing className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-[#F5F7FC]">
+              Dispatch Autonomous AI Call
+            </h2>
+            <p className="mt-0.5 text-xs text-[#94A3B8]">
+              Initiates an instant voice session connected to this agent via Twilio telephony.
+            </p>
+          </div>
         </div>
 
-        {/* CALLS */}
-
-        <div className="divide-y">
-          {(calls ?? []).map((call) => (
-            <div
-              key={call.id}
-              className="px-6 py-5 transition hover:bg-slate-50"
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label
+              htmlFor="ai-call-phone"
+              className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[#94A3B8]"
             >
-              {/* CALL HEADER */}
+              Recipient Phone Number (E.164 format)
+            </label>
+            <input
+              id="ai-call-phone"
+              type="tel"
+              value={phoneNumber}
+              onChange={(event) => {
+                setPhoneNumber(event.target.value);
+                setCallError(null);
+                setCallSuccess(null);
+              }}
+              placeholder="+14155552671"
+              disabled={makeCallMutation.isPending}
+              className="w-full rounded-lg border border-[#273449] bg-[#0E1528] px-4 py-2.5 font-mono text-sm text-[#F5F7FC] placeholder:text-[#94A3B8]/40 outline-none transition focus:border-[#7657F6] focus:ring-2 focus:ring-[#7657F6]/20 disabled:opacity-50"
+            />
+          </div>
 
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="font-semibold text-slate-900">
-                    {call.caller_name ||
-                      "Unknown Caller"}
-                  </h3>
-
-                  <p className="mt-1 text-sm text-slate-500">
-                    {call.caller_phone ||
-                      "No phone number"}
-                  </p>
-                </div>
-
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium capitalize text-slate-700">
-                  {call.status}
-                </span>
-              </div>
-
-              {/* CALL INFORMATION */}
-
-              <div className="mt-4 grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Call ID
-                  </p>
-
-                  <p className="mt-1 font-medium">
-                    #{call.id}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Direction
-                  </p>
-
-                  <p className="mt-1 font-medium capitalize">
-                    {call.direction}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Duration
-                  </p>
-
-                  <p className="mt-1 font-medium">
-                    {call.duration !== null
-                      ? `${call.duration}s`
-                      : "—"}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Created
-                  </p>
-
-                  <p className="mt-1 font-medium">
-                    {new Date(
-                      call.created_at
-                    ).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              {/* ACTIONS */}
-
-              <div className="mt-5 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleViewDetails(call)
-                  }
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
-                >
-                  View Details
-                </button>
-
-                {call.recording_url && (
-                  <a
-                    href={call.recording_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                  >
-                    Listen to Recording
-                  </a>
-                )}
-              </div>
-            </div>
-          ))}
+          <PrimaryButton
+            onClick={handleMakeCall}
+            loading={makeCallMutation.isPending}
+            className="sm:h-11 sm:px-6"
+          >
+            <PhoneCall className="h-4 w-4" />
+            Dispatch AI Call
+          </PrimaryButton>
         </div>
+
+        {callError && (
+          <div className="mt-4 rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-400">
+            {callError}
+          </div>
+        )}
+
+        {callSuccess && (
+          <div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-400">
+            {callSuccess}
+          </div>
+        )}
       </div>
 
-      {/* CALL DETAILS MODAL */}
+      {/* CALL HISTORY */}
+      <div className="overflow-hidden rounded-xl border border-[#273449] bg-[#151D32] shadow-sm">
+        <div className="flex items-center justify-between border-b border-[#273449] px-6 py-4">
+          <div>
+            <h2 className="text-base font-semibold text-[#F5F7FC]">
+              Call Sessions
+            </h2>
+            <p className="mt-0.5 text-xs text-[#94A3B8]">
+              Telephony history, duration, and intelligence for this agent.
+            </p>
+          </div>
+          <span className="font-mono text-xs text-[#94A3B8]">
+            Total: {calls?.length ?? 0}
+          </span>
+        </div>
 
+        {(!calls || calls.length === 0) ? (
+          <EmptyState
+            title="No call sessions recorded"
+            description="This agent has not conducted any outbound or inbound calls yet. Use the dialer above to launch a test session."
+            icon={PhoneCall}
+          />
+        ) : (
+          <div className="divide-y divide-[#273449]">
+            {calls.map((call) => (
+              <div
+                key={call.id}
+                className="p-6 transition hover:bg-[#1E293B]/30"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium text-[#F5F7FC]">
+                        {call.caller_name || "Unknown Prospect"}
+                      </h3>
+                      <span className="rounded bg-[#0E1528] border border-[#273449] px-2 py-0.5 font-mono text-[11px] text-[#94A3B8]">
+                        #{call.id}
+                      </span>
+                    </div>
+                    <p className="mt-1 font-mono text-xs text-[#24C8D8]">
+                      {call.caller_phone || "No phone number recorded"}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={call.status} />
+                    <span className="rounded-full bg-[#0E1528] border border-[#273449] px-2.5 py-0.5 text-xs font-semibold capitalize text-[#94A3B8]">
+                      {call.direction}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-4 rounded-lg border border-[#273449] bg-[#0E1528] p-3 text-xs sm:grid-cols-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-[#7657F6]" />
+                    <div>
+                      <span className="text-[#94A3B8]">Duration: </span>
+                      <span className="font-mono font-medium text-[#F5F7FC]">
+                        {formatCallDuration(call.duration)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-[#94A3B8]" />
+                    <div>
+                      <span className="text-[#94A3B8]">Date: </span>
+                      <span className="font-mono text-[#F5F7FC]">
+                        {new Date(call.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="col-span-2 flex items-center justify-end gap-2 sm:col-span-1">
+                    {call.recording_url && (
+                      <a
+                        href={call.recording_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded border border-[#273449] bg-[#151D32] px-2.5 py-1 text-xs font-medium text-[#24C8D8] transition hover:bg-[#273449]"
+                      >
+                        <Volume2 className="h-3 w-3" />
+                        Audio
+                      </a>
+                    )}
+                    <SecondaryButton
+                      size="sm"
+                      onClick={() => handleViewDetails(call)}
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-[#7657F6]" />
+                      Intelligence
+                    </SecondaryButton>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* CALL DETAILS & INTELLIGENCE MODAL */}
       {selectedCall && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               closeDetails();
             }
           }}
         >
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-[#273449] bg-[#151D32] shadow-2xl">
             {/* MODAL HEADER */}
-
-            <div className="flex items-center justify-between border-b px-6 py-5">
+            <div className="flex items-center justify-between border-b border-[#273449] px-6 py-5">
               <div>
-                <h2 className="text-xl font-bold text-slate-900">
-                  Call #{selectedCall.id}
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  {selectedCall.caller_name ||
-                    "Unknown Caller"}{" "}
-                  ·{" "}
-                  {selectedCall.caller_phone ||
-                    "No phone number"}
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-lg font-bold text-[#F5F7FC]">
+                    Call #{selectedCall.id}
+                  </h2>
+                  <StatusBadge status={selectedCall.status} />
+                </div>
+                <p className="mt-1 font-mono text-xs text-[#94A3B8]">
+                  {selectedCall.caller_name || "Unknown Prospect"} ·{" "}
+                  {selectedCall.caller_phone || "No phone number"}
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={closeDetails}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                className="rounded-lg p-1.5 text-[#94A3B8] transition hover:bg-[#273449] hover:text-[#F5F7FC]"
               >
-                Close
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             {/* MODAL CONTENT */}
-
             <div className="space-y-6 p-6">
-              {/* CALL INFORMATION */}
-
-              <section>
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                  Call Information
-                </h3>
-
-                <div className="grid grid-cols-2 gap-4 rounded-xl border bg-slate-50 p-5 md:grid-cols-4">
-                  <div>
-                    <p className="text-xs text-slate-400">
-                      Status
-                    </p>
-
-                    <p className="mt-1 font-medium capitalize text-slate-900">
-                      {selectedCall.status}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-slate-400">
-                      Direction
-                    </p>
-
-                    <p className="mt-1 font-medium capitalize text-slate-900">
-                      {selectedCall.direction}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-slate-400">
-                      Duration
-                    </p>
-
-                    <p className="mt-1 font-medium text-slate-900">
-                      {selectedCall.duration !==
-                      null
-                        ? `${selectedCall.duration}s`
-                        : "—"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-slate-400">
-                      Call ID
-                    </p>
-
-                    <p className="mt-1 font-medium text-slate-900">
-                      #{selectedCall.id}
-                    </p>
-                  </div>
+              {/* CALL METRICS */}
+              <div className="grid grid-cols-2 gap-3 rounded-xl border border-[#273449] bg-[#0E1528] p-4 sm:grid-cols-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+                    Status
+                  </p>
+                  <p className="mt-1 font-medium capitalize text-[#F5F7FC]">
+                    {selectedCall.status}
+                  </p>
                 </div>
-              </section>
-
-              {/* TRANSCRIPT */}
-
-              <section>
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                  Transcript
-                </h3>
-
-                <div className="rounded-xl border bg-slate-50 p-5">
-                  {selectedCall.transcript ? (
-                    <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">
-                      {selectedCall.transcript}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-slate-500">
-                      No transcript is available for
-                      this call.
-                    </p>
-                  )}
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+                    Direction
+                  </p>
+                  <p className="mt-1 font-medium capitalize text-[#F5F7FC]">
+                    {selectedCall.direction}
+                  </p>
                 </div>
-              </section>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+                    Duration
+                  </p>
+                  <p className="mt-1 font-mono font-medium text-[#F5F7FC]">
+                    {formatCallDuration(selectedCall.duration)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+                    Initiated
+                  </p>
+                  <p className="mt-1 font-mono text-xs text-[#94A3B8]">
+                    {new Date(selectedCall.created_at).toLocaleTimeString()}
+                  </p>
+                </div>
+              </div>
 
-              {/* RECORDING */}
-
+              {/* RECORDING AUDIO PLAYER */}
               {selectedCall.recording_url && (
-                <section>
-                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                    Recording
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
+                    Audio Recording
                   </h3>
-
-                  <div className="rounded-xl border bg-slate-50 p-5">
+                  <div className="rounded-xl border border-[#273449] bg-[#0E1528] p-4">
                     <audio
                       controls
                       className="w-full"
                       src={selectedCall.recording_url}
                     >
-                      Your browser does not support
-                      audio playback.
+                      Your browser does not support audio playback.
                     </audio>
                   </div>
-                </section>
+                </div>
               )}
 
-              {/* AI CALL INTELLIGENCE */}
+              {/* TRANSCRIPT */}
+              <div>
+                <div className="mb-2 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-[#7657F6]" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
+                    Dialogue Transcript
+                  </h3>
+                </div>
+                <div className="max-h-60 overflow-y-auto rounded-xl border border-[#273449] bg-[#0E1528] p-4 font-mono text-xs leading-relaxed text-[#F5F7FC]">
+                  {selectedCall.transcript ? (
+                    <p className="whitespace-pre-wrap">{selectedCall.transcript}</p>
+                  ) : (
+                    <p className="text-[#94A3B8]">
+                      No transcript recorded for this session.
+                    </p>
+                  )}
+                </div>
+              </div>
 
-              <section className="rounded-xl border border-blue-100 bg-blue-50 p-5">
-                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+              {/* AI CALL INTELLIGENCE ACTION */}
+              <div className="rounded-xl border border-[#7657F6]/30 bg-gradient-to-r from-[#151D32] to-[#1E293B] p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h3 className="font-semibold text-slate-900">
-                      AI Call Intelligence
-                    </h3>
-
-                    <p className="mt-1 text-sm text-slate-500">
-                      Analyze this call using LeadVoix
-                      AI.
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-[#24C8D8]" />
+                      <h3 className="text-sm font-semibold text-[#F5F7FC]">
+                        AI Call Intelligence
+                      </h3>
+                    </div>
+                    <p className="mt-1 text-xs text-[#94A3B8]">
+                      Extract prospect sentiment, lead qualification score, objections, and deal recommendations.
                     </p>
                   </div>
 
-                  <button
-                    type="button"
+                  <PrimaryButton
+                    size="sm"
                     onClick={handleAnalyzeCall}
-                    disabled={analyzeMutation.isPending}
-                    className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    loading={analyzeMutation.isPending}
                   >
-                    {analyzeMutation.isPending
-                      ? "Analyzing..."
-                      : "Analyze Call"}
-                  </button>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Analyze Session
+                  </PrimaryButton>
                 </div>
 
-                {/* ANALYSIS ERROR */}
-
                 {analyzeMutation.isError && (
-                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
-                    <p className="text-sm text-red-600">
-                      Failed to analyze this call.
-                      Please try again.
-                    </p>
+                  <div className="mt-4 rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-400">
+                    Failed to generate intelligence for this call. Please retry.
                   </div>
                 )}
-              </section>
+              </div>
 
-              {/* AI INTELLIGENCE RESULT */}
-
+              {/* AI INTELLIGENCE RESULTS */}
               {intelligence && (
-                <section>
-                  <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                      AI Intelligence
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-[#273449] pb-2">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-[#24C8D8]">
+                      Intelligence Insights
                     </h3>
-
-                    <span className="w-fit rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                      Analysis Complete
+                    <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                      Analysis Ready
                     </span>
                   </div>
 
-                  {/* TOP METRICS */}
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {/* SENTIMENT */}
-
-                    <div className="rounded-xl border bg-white p-5">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                        Sentiment
-                      </p>
-
-                      <p className="mt-2 text-lg font-semibold capitalize text-slate-900">
-                        {intelligence.sentiment ||
-                          "—"}
-                      </p>
-                    </div>
-
-                    {/* LEAD SCORE */}
-
-                    <div className="rounded-xl border bg-white p-5">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-xl border border-[#273449] bg-[#0E1528] p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
                         Lead Score
                       </p>
-
-                      <p className="mt-2 text-3xl font-bold text-slate-900">
+                      <p className="mt-1 font-mono text-3xl font-bold text-[#F5F7FC]">
                         {intelligence.lead_score}
-                      </p>
-
-                      <p className="mt-1 text-xs text-slate-400">
-                        out of 100
+                        <span className="text-sm font-normal text-[#94A3B8]">/100</span>
                       </p>
                     </div>
 
-                    {/* LEAD TEMPERATURE */}
+                    <div className="rounded-xl border border-[#273449] bg-[#0E1528] p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+                        Sentiment
+                      </p>
+                      <p className="mt-2 text-base font-semibold capitalize text-[#F5F7FC]">
+                        {intelligence.sentiment || "Neutral"}
+                      </p>
+                    </div>
 
-                    <div className="rounded-xl border bg-white p-5">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    <div className="rounded-xl border border-[#273449] bg-[#0E1528] p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
                         Lead Temperature
                       </p>
-
-                      <p className="mt-2 text-lg font-semibold capitalize text-slate-900">
-                        {intelligence.lead_temperature ||
-                          "—"}
+                      <p className="mt-2 text-base font-semibold capitalize text-[#F5F7FC]">
+                        {intelligence.lead_temperature || "Warm"}
                       </p>
                     </div>
 
-                    {/* CUSTOMER INTENT */}
-
-                    <div className="rounded-xl border bg-white p-5">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                        Customer Intent
+                    <div className="rounded-xl border border-[#273449] bg-[#0E1528] p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+                        Intent
                       </p>
-
-                      <p className="mt-2 text-lg font-semibold text-slate-900">
-                        {intelligence.customer_intent ||
-                          "—"}
+                      <p className="mt-2 text-sm font-medium text-[#F5F7FC]">
+                        {intelligence.customer_intent || "Evaluation"}
                       </p>
                     </div>
                   </div>
 
-                  {/* OBJECTIONS */}
+                  {intelligence.objections && (
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-400">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        Identified Objections
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-[#F5F7FC]">
+                        {intelligence.objections}
+                      </p>
+                    </div>
+                  )}
 
-                  <div className="mt-4 rounded-xl border bg-white p-5">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                      Objections
-                    </p>
+                  {intelligence.buying_signals && (
+                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-400">
+                        <TrendingUp className="h-3.5 w-3.5" />
+                        Buying Signals
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-[#F5F7FC]">
+                        {intelligence.buying_signals}
+                      </p>
+                    </div>
+                  )}
 
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                      {intelligence.objections ||
-                        "No objections detected."}
-                    </p>
-                  </div>
-
-                  {/* BUYING SIGNALS */}
-
-                  <div className="mt-4 rounded-xl border bg-white p-5">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                      Buying Signals
-                    </p>
-
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                      {intelligence.buying_signals ||
-                        "No buying signals detected."}
-                    </p>
-                  </div>
-
-                  {/* RECOMMENDED ACTION */}
-
-                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-5">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                      Recommended Action
-                    </p>
-
-                    <p className="mt-2 text-sm font-medium leading-6 text-slate-800">
-                      {intelligence.recommended_action ||
-                        "No recommendation available."}
-                    </p>
-                  </div>
-                </section>
+                  {intelligence.recommended_action && (
+                    <div className="rounded-xl border border-[#7657F6]/30 bg-[#7657F6]/10 p-4">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#7657F6]">
+                        <Lightbulb className="h-3.5 w-3.5" />
+                        Recommended Next Step
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-[#F5F7FC]">
+                        {intelligence.recommended_action}
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
-            {/* MODAL FOOTER */}
-
-            <div className="flex justify-end border-t px-6 py-4">
-              <button
-                type="button"
-                onClick={closeDetails}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-              >
+            <div className="flex justify-end border-t border-[#273449] px-6 py-4">
+              <SecondaryButton onClick={closeDetails}>
                 Close
-              </button>
+              </SecondaryButton>
             </div>
           </div>
         </div>

@@ -44,6 +44,17 @@ class AgentCall(Base):
         nullable=True,
     )
 
+    caller_phone_normalized = Column(
+        String(32),
+        nullable=True,
+        index=True,
+    )
+
+    caller_phone_extension = Column(
+        String(10),
+        nullable=True,
+    )
+
     status = Column(
         String,
         nullable=False,
@@ -65,7 +76,6 @@ class AgentCall(Base):
         Text,
         nullable=True,
     )
-
 
     recording_url = Column(
         String,
@@ -105,12 +115,12 @@ class AgentCall(Base):
     )
 
     transcripts = relationship(
-    "AgentCallTranscript",
-    back_populates="agent_call",
-  )
+        "AgentCallTranscript",
+        back_populates="agent_call",
+    )
 
     summary = relationship(
-    "AgentCallSummary",
-    back_populates="agent_call",
-    uselist=False,
-  )
+        "AgentCallSummary",
+        back_populates="agent_call",
+        uselist=False,
+    )

@@ -6,3 +6,11 @@ __pycache__/
 .leadvoix-venv/
 .env.*
 !.env.example
+
+# Database Backups
+database_backups/
+*.dump
+
+# Supabase Local CLI Metadata
+supabase/
+.temp/

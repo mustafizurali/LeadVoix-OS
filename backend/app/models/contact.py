@@ -17,8 +17,30 @@ class Contact(Base):
     email = Column(String, nullable=True)
 
     phone = Column(String, nullable=True)
+    phone_normalized = Column(String(32), nullable=True, index=True)
+    phone_extension = Column(String(10), nullable=True)
 
     company = Column(String, nullable=True)
+    company_id = Column(
+        Integer,
+        ForeignKey("companies.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    lead_id = Column(
+        Integer,
+        ForeignKey("leads.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    owner_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     status = Column(
         String,
@@ -58,4 +80,20 @@ class Contact(Base):
     tasks = relationship(
         "Task",
         back_populates="contact",
+    )
+
+    owner = relationship(
+        "User",
+        foreign_keys=[owner_id],
+    )
+
+    company_rel = relationship(
+        "Company",
+        back_populates="contacts",
+        foreign_keys=[company_id],
+    )
+
+    lead = relationship(
+        "Lead",
+        foreign_keys=[lead_id],
     )

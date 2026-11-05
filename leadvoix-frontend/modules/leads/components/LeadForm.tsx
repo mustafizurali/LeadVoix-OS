@@ -1,87 +1,78 @@
 "use client";
 
-import {
-  CreateLeadPayload,
-  UpdateLeadPayload,
-} from "../types/lead.types";
+import React from "react";
+import { FormField } from "@/components/crm";
+import { CreateLeadPayload, UpdateLeadPayload } from "../types/lead.types";
 
 interface LeadFormProps {
   form: Partial<CreateLeadPayload & UpdateLeadPayload>;
   onChange: (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => void;
 }
 
-export default function LeadForm({
-  form,
-  onChange,
-}: LeadFormProps) {
+export default function LeadForm({ form, onChange }: LeadFormProps) {
   return (
-    <div className="grid grid-cols-2 gap-4">
-      <input
-        type="text"
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <FormField
+        label="First Name"
         name="first_name"
-        placeholder="First Name"
+        required
+        placeholder="e.g. Alex"
         value={form.first_name ?? ""}
         onChange={onChange}
-        className="rounded-lg border p-2"
       />
 
-      <input
-        type="text"
+      <FormField
+        label="Last Name"
         name="last_name"
-        placeholder="Last Name"
+        placeholder="e.g. Morgan"
         value={form.last_name ?? ""}
         onChange={onChange}
-        className="rounded-lg border p-2"
       />
 
-      <input
-        type="email"
+      <FormField
+        label="Email Address"
         name="email"
-        placeholder="Email"
+        type="email"
+        placeholder="alex@company.com"
         value={form.email ?? ""}
         onChange={onChange}
-        className="rounded-lg border p-2"
       />
 
-      <input
-        type="text"
+      <FormField
+        label="Phone Number"
         name="phone"
-        placeholder="Phone"
+        placeholder="+1 (555) 000-0000"
         value={form.phone ?? ""}
         onChange={onChange}
-        className="rounded-lg border p-2"
       />
 
-      <input
-        type="text"
+      <FormField
+        label="Company"
         name="company"
-        placeholder="Company"
+        placeholder="Acme Inc."
         value={form.company ?? ""}
         onChange={onChange}
-        className="rounded-lg border p-2"
       />
 
-      <input
-        type="text"
+      <FormField
+        label="Lead Source"
         name="source"
-        placeholder="Source"
+        placeholder="Website, Referral, AI Inbound..."
         value={form.source ?? ""}
         onChange={onChange}
-        className="rounded-lg border p-2"
       />
 
-      <div className="col-span-2">
-        <textarea
+      <div className="col-span-1 sm:col-span-2">
+        <FormField
+          as="textarea"
+          label="Notes / Background"
           name="notes"
-          placeholder="Notes"
+          rows={3}
+          placeholder="Add any context, lead qualification details, or requirements..."
           value={form.notes ?? ""}
           onChange={onChange}
-          rows={4}
-          className="w-full rounded-lg border p-2"
         />
       </div>
     </div>

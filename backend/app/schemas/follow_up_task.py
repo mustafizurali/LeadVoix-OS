@@ -22,6 +22,7 @@ class FollowUpTaskUpdate(BaseModel):
 
 class FollowUpTaskResponse(BaseModel):
     id: int
+    organization_id: Optional[int] = None
     agent_call_id: int
     title: str
     description: Optional[str]

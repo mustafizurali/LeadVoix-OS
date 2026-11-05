@@ -4,11 +4,11 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import DashboardLayout from "@/modules/dashboard/components/DashboardLayout";
-
 import ContactToolbar from "@/modules/contacts/components/ContactToolbar";
 import ContactTable from "@/modules/contacts/components/ContactTable";
 import CreateContactModal from "@/modules/contacts/components/CreateContactModal";
 import EditContactModal from "@/modules/contacts/components/EditContactModal";
+import { PageContainer, PageHeader, ConfirmationDialog } from "@/components/crm";
 
 import { deleteContact } from "@/modules/contacts/api/contactApi";
 import { Contact } from "@/modules/contacts/types/contact.types";
@@ -18,11 +18,11 @@ export default function ContactsPage() {
 
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
-
   const [search, setSearch] = useState("");
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
-  const [selectedContact, setSelectedContact] =
-    useState<Contact | null>(null);
+  const [deleteConfirmContact, setDeleteConfirmContact] = useState<Contact | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleEditContact = (contact: Contact) => {
     setSelectedContact(contact);
@@ -34,41 +34,35 @@ export default function ContactsPage() {
     setSelectedContact(null);
   };
 
-  const handleDeleteContact = async (
-    contact: Contact
-  ) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${contact.first_name}"?`
-    );
+  const handleDeleteContact = (contact: Contact) => {
+    setDeleteConfirmContact(contact);
+  };
 
-    if (!confirmed) return;
+  const confirmDelete = async () => {
+    if (!deleteConfirmContact) return;
 
     try {
-      await deleteContact(contact.id);
-
+      setIsDeleting(true);
+      await deleteContact(deleteConfirmContact.id);
       await queryClient.invalidateQueries({
         queryKey: ["contacts"],
       });
-
-      alert("Contact deleted successfully.");
+      setDeleteConfirmContact(null);
     } catch (error) {
-      console.error(error);
-      alert("Failed to delete contact.");
+      console.error("Failed to delete contact:", error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold">
-            Contacts
-          </h1>
-
-          <p className="mt-2 text-slate-500">
-            Manage all your contacts.
-          </p>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Contacts"
+          subtitle="Directory of customer stakeholders, accounts, and individual representatives."
+          badge={{ label: "Directory", variant: "cyan" }}
+        />
 
         <ContactToolbar
           search={search}
@@ -80,8 +74,9 @@ export default function ContactsPage() {
           search={search}
           onEditContact={handleEditContact}
           onDeleteContact={handleDeleteContact}
+          onCreateContact={() => setOpenCreate(true)}
         />
-      </div>
+      </PageContainer>
 
       <CreateContactModal
         open={openCreate}
@@ -92,6 +87,16 @@ export default function ContactsPage() {
         open={openEdit}
         onClose={handleCloseEdit}
         contact={selectedContact}
+      />
+
+      <ConfirmationDialog
+        open={!!deleteConfirmContact}
+        onClose={() => setDeleteConfirmContact(null)}
+        onConfirm={confirmDelete}
+        title="Delete Contact Record"
+        description={`Are you sure you want to delete "${deleteConfirmContact?.first_name} ${deleteConfirmContact?.last_name || ""}"? This operation cannot be undone.`}
+        confirmLabel="Delete Contact"
+        loading={isDeleting}
       />
     </DashboardLayout>
   );

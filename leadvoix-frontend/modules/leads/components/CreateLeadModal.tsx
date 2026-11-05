@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-
+import { Modal, PrimaryButton, SecondaryButton } from "@/components/crm";
 import { createLead } from "../api/leadApi";
 import { CreateLeadPayload } from "../types/lead.types";
 import LeadForm from "./LeadForm";
@@ -17,8 +17,8 @@ export default function CreateLeadModal({
   onClose,
 }: CreateLeadModalProps) {
   const queryClient = useQueryClient();
-
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState<CreateLeadPayload>({
     first_name: "",
@@ -31,9 +31,7 @@ export default function CreateLeadModal({
   });
 
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setForm((prev) => ({
       ...prev,
@@ -51,16 +49,18 @@ export default function CreateLeadModal({
       source: "",
       notes: "",
     });
+    setError(null);
   };
 
   const handleSubmit = async () => {
     if (!form.first_name.trim()) {
-      alert("First Name is required");
+      setError("First Name is required");
       return;
     }
 
     try {
       setLoading(true);
+      setError(null);
 
       const payload = {
         ...form,
@@ -79,58 +79,50 @@ export default function CreateLeadModal({
       });
 
       resetForm();
-
       onClose();
-    } catch (error) {
-      console.error(error);
-      alert("Failed to create lead");
+    } catch (err: unknown) {
+      console.error(err);
+      setError("Failed to create lead. Please verify the information and try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-xl">
+    <Modal
+      open={open}
+      onClose={() => {
+        resetForm();
+        onClose();
+      }}
+      title="Create New Lead"
+      subtitle="Register a new prospect into the LeadVoix sales pipeline."
+      maxWidth="2xl"
+    >
+      <div className="space-y-5">
+        {error && (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/15 p-3 text-xs text-red-300">
+            {error}
+          </div>
+        )}
 
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-3xl font-bold">
-            Create New Lead
-          </h2>
+        <LeadForm form={form} onChange={handleChange} />
 
-          <button
-            onClick={onClose}
-            className="text-2xl text-slate-500 hover:text-black"
-          >
-            ×
-          </button>
-        </div>
-
-        <LeadForm
-          form={form}
-          onChange={handleChange}
-        />
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="rounded-lg border px-5 py-2"
+        <div className="flex justify-end gap-3 pt-4 border-t border-[#273449]">
+          <SecondaryButton
+            onClick={() => {
+              resetForm();
+              onClose();
+            }}
+            disabled={loading}
           >
             Cancel
-          </button>
-
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="rounded-lg bg-blue-600 px-5 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? "Creating..." : "Create Lead"}
-          </button>
+          </SecondaryButton>
+          <PrimaryButton onClick={handleSubmit} loading={loading}>
+            Create Lead
+          </PrimaryButton>
         </div>
-
       </div>
-    </div>
+    </Modal>
   );
 }

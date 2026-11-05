@@ -75,6 +75,13 @@ class Task(Base):
         nullable=True,
     )
 
+    agent_call_id = Column(
+        Integer,
+        ForeignKey("agent_calls.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     assigned_to = Column(
         Integer,
         ForeignKey("users.id"),
@@ -123,6 +130,11 @@ class Task(Base):
     company = relationship(
         "Company",
         back_populates="tasks",
+    )
+
+    agent_call = relationship(
+        "AgentCall",
+        foreign_keys=[agent_call_id],
     )
 
     assignee = relationship(

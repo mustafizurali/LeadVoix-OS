@@ -1,5 +1,9 @@
 "use client";
 
+import React from "react";
+import { Users } from "lucide-react";
+import { SearchInput, PrimaryButton } from "@/components/crm";
+
 interface ContactToolbarProps {
   search: string;
   onSearchChange: (value: string) => void;
@@ -12,21 +16,17 @@ export default function ContactToolbar({
   onCreateContact,
 }: ContactToolbarProps) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <input
-        type="text"
-        placeholder="Search contacts..."
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <SearchInput
         value={search}
-        onChange={(e) => onSearchChange(e.target.value)}
-        className="w-full max-w-md rounded-lg border border-slate-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
+        onChange={onSearchChange}
+        placeholder="Search contacts by name, email, company..."
+        className="w-full sm:max-w-md"
       />
 
-      <button
-        onClick={onCreateContact}
-        className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700"
-      >
+      <PrimaryButton onClick={onCreateContact} icon={Users}>
         + New Contact
-      </button>
+      </PrimaryButton>
     </div>
   );
 }

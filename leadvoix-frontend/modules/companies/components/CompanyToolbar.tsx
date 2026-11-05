@@ -1,5 +1,9 @@
 "use client";
 
+import React from "react";
+import { Building2 } from "lucide-react";
+import { SearchInput, PrimaryButton } from "@/components/crm";
+
 interface CompanyToolbarProps {
   search: string;
   onSearchChange: (value: string) => void;
@@ -12,21 +16,17 @@ export default function CompanyToolbar({
   onCreateCompany,
 }: CompanyToolbarProps) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <input
-        type="text"
-        placeholder="Search companies..."
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <SearchInput
         value={search}
-        onChange={(event) => onSearchChange(event.target.value)}
-        className="w-full max-w-md rounded-lg border border-slate-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        onChange={onSearchChange}
+        placeholder="Search companies by name, domain, industry..."
+        className="w-full sm:max-w-md"
       />
 
-      <button
-        onClick={onCreateCompany}
-        className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700"
-      >
+      <PrimaryButton onClick={onCreateCompany} icon={Building2}>
         + New Company
-      </button>
+      </PrimaryButton>
     </div>
   );
 }

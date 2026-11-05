@@ -1,14 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-
+import { Modal, PrimaryButton, SecondaryButton } from "@/components/crm";
 import { updateLead } from "../api/leadApi";
-import {
-  Lead,
-  UpdateLeadPayload,
-} from "../types/lead.types";
-
+import { Lead, UpdateLeadPayload } from "../types/lead.types";
 import LeadForm from "./LeadForm";
 
 interface EditLeadModalProps {
@@ -23,8 +19,8 @@ export default function EditLeadModal({
   lead,
 }: EditLeadModalProps) {
   const queryClient = useQueryClient();
-
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState<UpdateLeadPayload>({
     first_name: "",
@@ -49,13 +45,12 @@ export default function EditLeadModal({
         notes: lead.notes ?? "",
         status: lead.status ?? "",
       });
+      setError(null);
     }
   }, [lead]);
 
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setForm((prev) => ({
       ...prev,
@@ -67,22 +62,22 @@ export default function EditLeadModal({
     if (!lead) return;
 
     if (!form.first_name?.trim()) {
-      alert("First Name is required");
+      setError("First Name is required");
       return;
     }
 
     try {
       setLoading(true);
+      setError(null);
 
-      const payload: UpdateLeadPayload = {
-        first_name: form.first_name.trim(),
-        last_name: form.last_name?.trim() || undefined,
+      const payload = {
+        ...form,
         email: form.email?.trim() || undefined,
         phone: form.phone?.trim() || undefined,
         company: form.company?.trim() || undefined,
         source: form.source?.trim() || undefined,
         notes: form.notes?.trim() || undefined,
-        status: form.status?.trim() || undefined,
+        last_name: form.last_name?.trim() || undefined,
       };
 
       await updateLead(lead.id, payload);
@@ -92,54 +87,40 @@ export default function EditLeadModal({
       });
 
       onClose();
-    } catch (error) {
-      console.error(error);
-      alert("Failed to update lead");
+    } catch (err: unknown) {
+      console.error(err);
+      setError("Failed to update lead. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!open || !lead) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-xl">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-3xl font-bold">
-            Edit Lead
-          </h2>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Edit Lead"
+      subtitle={`Updating record for ${lead?.first_name ?? "Lead"} ${lead?.last_name ?? ""}`}
+      maxWidth="2xl"
+    >
+      <div className="space-y-5">
+        {error && (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/15 p-3 text-xs text-red-300">
+            {error}
+          </div>
+        )}
 
-          <button
-            onClick={onClose}
-            className="text-2xl text-slate-500 hover:text-black"
-          >
-            ×
-          </button>
-        </div>
+        <LeadForm form={form} onChange={handleChange} />
 
-        <LeadForm
-          form={form}
-          onChange={handleChange}
-        />
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="rounded-lg border px-5 py-2"
-          >
+        <div className="flex justify-end gap-3 pt-4 border-t border-[#273449]">
+          <SecondaryButton onClick={onClose} disabled={loading}>
             Cancel
-          </button>
-
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="rounded-lg bg-blue-600 px-5 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? "Updating..." : "Update Lead"}
-          </button>
+          </SecondaryButton>
+          <PrimaryButton onClick={handleSubmit} loading={loading}>
+            Save Changes
+          </PrimaryButton>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

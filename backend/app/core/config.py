@@ -1,4 +1,3 @@
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,6 +13,8 @@ class Settings(BaseSettings):
     TWILIO_PHONE_NUMBER: str
 
     BACKEND_BASE_URL: str = "https://leadvoix-backend.onrender.com"
+    TRUST_PROXY_HEADERS: bool = True
+    ALLOWED_HOSTS: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

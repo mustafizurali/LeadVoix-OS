@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -9,10 +11,12 @@ from sqlalchemy.orm import Session
 
 from backend.app.db.database import get_db
 
+from backend.app.models.agent import Agent
 from backend.app.models.lead import Lead
 from backend.app.models.agent_call import AgentCall
 from backend.app.models.user import User
 from backend.app.utils.dependencies import get_current_user
+from backend.app.utils.phone import normalize_phone
 
 from backend.app.services.agent_call_analysis import (
     build_transcript_text,
@@ -43,90 +47,110 @@ router = APIRouter(
 
 
 # ============================================================
-# PHONE NORMALIZATION
-# ============================================================
-
-def normalize_phone(phone: str | None) -> str:
-    """
-    Normalize phone number.
-
-    Examples:
-    +1 555-000-0002
-    +15550000002
-    15550000002
-
-    All become:
-    15550000002
-    """
-
-    if not phone:
-        return ""
-
-    return "".join(
-        char
-        for char in str(phone)
-        if char.isdigit()
-    )
-
-
-# ============================================================
 # FIND MATCHING LEAD
 # ============================================================
 
 def find_matching_lead(
     db: Session,
-    agent_call,
-):
-    call_phone = normalize_phone(
-        agent_call.caller_phone
-    )
+    agent_call: AgentCall,
+) -> Optional[Lead]:
+    """
+    Find matching lead in the same organization by normalized phone number.
+    Uses indexed Lead.phone_normalized query rather than in-memory scanning.
+    """
+    caller_phone_norm = agent_call.caller_phone_normalized
+    if not caller_phone_norm and agent_call.caller_phone:
+        caller_phone_norm, _ = normalize_phone(agent_call.caller_phone)
 
-    # --------------------------------------------------------
-    # Check call phone
-    # --------------------------------------------------------
-
-    if not call_phone:
+    if not caller_phone_norm:
         return None
 
-    # --------------------------------------------------------
-    # Get leads from same organization
-    # --------------------------------------------------------
+    candidates = [caller_phone_norm]
+    if caller_phone_norm.startswith("+"):
+        candidates.append(caller_phone_norm.lstrip("+"))
+    else:
+        candidates.append(f"+{caller_phone_norm}")
 
-    leads = (
+    return (
         db.query(Lead)
         .filter(
-            Lead.organization_id
-            == agent_call.organization_id
+            Lead.organization_id == agent_call.organization_id,
+            Lead.phone_normalized.in_(candidates),
         )
-        .all()
+        .first()
     )
 
-    # --------------------------------------------------------
-    # Compare phone numbers
-    # --------------------------------------------------------
 
-    for lead in leads:
+# ============================================================
+# GET CALL INTELLIGENCE
+# ============================================================
 
-        lead_phone = normalize_phone(
-            lead.phone
+@router.get(
+    "/{agent_id}/calls/{call_id}/intelligence",
+    response_model=AgentCallIntelligenceResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_call_intelligence_endpoint(
+    agent_id: int,
+    call_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # ========================================================
+    # GET AND VALIDATE AGENT
+    # ========================================================
+
+    agent = (
+        db.query(Agent)
+        .filter(
+            Agent.id == agent_id,
+            Agent.organization_id == current_user.organization_id,
+        )
+        .first()
+    )
+
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent not found",
         )
 
-        # Skip empty phone
-        if not lead_phone:
-            continue
+    # ========================================================
+    # GET AND VALIDATE AGENT CALL
+    # ========================================================
 
-        # ----------------------------------------------------
-        # Exact normalized phone match
-        # ----------------------------------------------------
+    agent_call = (
+        db.query(AgentCall)
+        .filter(
+            AgentCall.id == call_id,
+            AgentCall.agent_id == agent_id,
+            AgentCall.organization_id == current_user.organization_id,
+        )
+        .first()
+    )
 
-        if call_phone == lead_phone:
-            return lead
+    if not agent_call:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent call not found",
+        )
 
-    # --------------------------------------------------------
-    # No matching lead
-    # --------------------------------------------------------
+    # ========================================================
+    # GET CALL INTELLIGENCE
+    # ========================================================
 
-    return None
+    intelligence = get_agent_call_intelligence(
+        db,
+        call_id,
+    )
+
+    if not intelligence:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Call intelligence not found",
+        )
+
+    return intelligence
 
 
 # ============================================================

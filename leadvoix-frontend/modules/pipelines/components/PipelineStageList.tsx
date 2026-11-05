@@ -2,27 +2,53 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { Plus, Edit2, Layers } from "lucide-react";
 
 import { usePipelineStages } from "../hooks/usePipelineStages";
-import type { Pipeline, PipelineStage } from "../types/pipeline.types";
-
+import type { Pipeline, PipelineStage, PipelineStageType } from "../types/pipeline.types";
 import CreateStageModal from "./CreateStageModal";
 import EditStageModal from "./EditStageModal";
+import { PrimaryButton, SecondaryButton, StatusBadge } from "@/components/crm";
 
 interface PipelineStageListProps {
   pipeline: Pipeline;
 }
 
-export default function PipelineStageList({
-  pipeline,
-}: PipelineStageListProps) {
+function getStageTypeBadge(type: PipelineStageType) {
+  switch (type) {
+    case "WON":
+      return (
+        <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400 border border-emerald-500/20">
+          Won
+        </span>
+      );
+    case "LOST":
+      return (
+        <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2.5 py-0.5 text-xs font-medium text-rose-400 border border-rose-500/20">
+          Lost
+        </span>
+      );
+    case "OPEN":
+      return (
+        <span className="inline-flex items-center rounded-full bg-[#7657F6]/10 px-2.5 py-0.5 text-xs font-medium text-[#7657F6] border border-[#7657F6]/20">
+          Open
+        </span>
+      );
+    default:
+      return (
+        <span className="inline-flex items-center rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-xs font-medium text-cyan-400 border border-cyan-500/20">
+          Normal
+        </span>
+      );
+  }
+}
+
+export default function PipelineStageList({ pipeline }: PipelineStageListProps) {
   const queryClient = useQueryClient();
 
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
-
-  const [selectedStage, setSelectedStage] =
-    useState<PipelineStage | null>(null);
+  const [selectedStage, setSelectedStage] = useState<PipelineStage | null>(null);
 
   const {
     data: allStages = [],
@@ -32,19 +58,21 @@ export default function PipelineStageList({
 
   const stages = useMemo(() => {
     return allStages
-      .filter(
-        (stage: PipelineStage) =>
-          stage.pipeline_id === pipeline.id
-      )
-      .sort(
-        (a: PipelineStage, b: PipelineStage) =>
-          a.position - b.position
-      );
+      .filter((stage: PipelineStage) => stage.pipeline_id === pipeline.id)
+      .sort((a: PipelineStage, b: PipelineStage) => a.position - b.position);
   }, [allStages, pipeline.id]);
 
-  const handleOpenEdit = (
-    stage: PipelineStage
-  ) => {
+  const nextPosition = useMemo(() => {
+    if (stages.length === 0) return 0;
+    const maxPos = Math.max(...stages.map((s: PipelineStage) => s.position));
+    return maxPos + 1;
+  }, [stages]);
+
+  const existingPositions = useMemo(() => {
+    return stages.map((s: PipelineStage) => s.position);
+  }, [stages]);
+
+  const handleOpenEdit = (stage: PipelineStage) => {
     setSelectedStage(stage);
     setOpenEdit(true);
   };
@@ -56,193 +84,118 @@ export default function PipelineStageList({
   };
 
   return (
-    <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-
-      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
+    <div className="rounded-xl border border-[#273449] bg-[#0E1528] p-5 shadow-inner">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900">
-            Stages
-          </h3>
-
-          <p className="text-sm text-slate-500">
-            Ordered by stage position
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-[#7657F6]" />
+            <h3 className="text-base font-semibold text-[#F5F7FC]">
+              Pipeline Stages ({stages.length})
+            </h3>
+          </div>
+          <p className="mt-0.5 text-xs text-[#94A3B8]">
+            Sequential stages that deals flow through in this pipeline.
           </p>
         </div>
 
-        <button
-          type="button"
+        <PrimaryButton
+          size="sm"
           onClick={() => setOpenCreate(true)}
-          className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
         >
-          + New Stage
-        </button>
-
+          <Plus className="h-3.5 w-3.5" />
+          Add Stage
+        </PrimaryButton>
       </div>
 
       {isLoading ? (
-
-        <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
-          Loading stages...
+        <div className="py-6 text-center text-sm text-[#94A3B8]">
+          Loading pipeline stages...
         </div>
-
       ) : error ? (
-
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
-          Failed to load stages.
+        <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-sm text-rose-400">
+          Failed to load stages for this pipeline.
         </div>
-
       ) : stages.length === 0 ? (
-
-        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
-          No stages found for this pipeline.
+        <div className="rounded-lg border border-dashed border-[#273449] bg-[#151D32]/50 p-6 text-center">
+          <p className="text-sm text-[#94A3B8]">
+            No stages defined for this pipeline yet.
+          </p>
+          <SecondaryButton
+            size="sm"
+            onClick={() => setOpenCreate(true)}
+            className="mt-3"
+          >
+            Create First Stage
+          </SecondaryButton>
         </div>
-
       ) : (
-
-        <div className="overflow-x-auto">
-
-          <table className="min-w-full text-left text-sm">
-
-            <thead className="bg-white text-slate-600">
-
+        <div className="overflow-x-auto rounded-lg border border-[#273449] bg-[#151D32]">
+          <table className="min-w-full divide-y divide-[#273449] text-left text-sm">
+            <thead className="bg-[#0E1528] text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
               <tr>
-
-                <th className="px-3 py-2 font-semibold">
-                  Name
-                </th>
-
-                <th className="px-3 py-2 font-semibold">
-                  Position
-                </th>
-
-                <th className="px-3 py-2 font-semibold">
-                  Color
-                </th>
-
-                <th className="px-3 py-2 font-semibold">
-                  Type
-                </th>
-
-                <th className="px-3 py-2 font-semibold">
-                  Probability
-                </th>
-
-                <th className="px-3 py-2 font-semibold">
-                  SLA Days
-                </th>
-
-                <th className="px-3 py-2 font-semibold">
-                  Status
-                </th>
-
-                <th className="px-3 py-2 text-center font-semibold">
-                  Actions
-                </th>
-
+                <th className="px-4 py-3">Order</th>
+                <th className="px-4 py-3">Stage Name</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3">Color</th>
+                <th className="px-4 py-3">Probability</th>
+                <th className="px-4 py-3">SLA Days</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
-
             </thead>
-
-            <tbody>
-
-              {stages.map(
-                (stage: PipelineStage) => (
-
-                  <tr
-                    key={stage.id}
-                    className="border-t border-slate-200 bg-white"
-                  >
-
-                    <td className="px-3 py-3 font-medium text-slate-900">
-                      {stage.name}
-                    </td>
-
-                    <td className="px-3 py-3 text-slate-700">
-                      {stage.position}
-                    </td>
-
-                    <td className="px-3 py-3">
-
-                      <div className="flex items-center gap-2">
-
-                        <span
-                          className="h-4 w-4 rounded-full border border-slate-300"
-                          style={{
-                            backgroundColor:
-                              stage.color ?? "#64748b",
-                          }}
-                        />
-
-                        <span className="text-slate-700">
-                          {stage.color ?? "-"}
-                        </span>
-
-                      </div>
-
-                    </td>
-
-                    <td className="px-3 py-3">
-
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                        {stage.stage_type}
-                      </span>
-
-                    </td>
-
-                    <td className="px-3 py-3 text-slate-700">
-                      {stage.probability}%
-                    </td>
-
-                    <td className="px-3 py-3 text-slate-700">
-                      {stage.sla_days}
-                    </td>
-
-                    <td className="px-3 py-3">
-
+            <tbody className="divide-y divide-[#273449]">
+              {stages.map((stage: PipelineStage, index: number) => (
+                <tr
+                  key={stage.id}
+                  className="transition hover:bg-[#1E293B]/40"
+                >
+                  <td className="px-4 py-3">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#273449] font-mono text-xs font-semibold text-[#F5F7FC]">
+                      {stage.position ?? index + 1}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 font-medium text-[#F5F7FC]">
+                    {stage.name}
+                  </td>
+                  <td className="px-4 py-3">
+                    {getStageTypeBadge(stage.stage_type)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
                       <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                          stage.is_active
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-slate-200 text-slate-600"
-                        }`}
-                      >
-                        {stage.is_active
-                          ? "Active"
-                          : "Inactive"}
+                        className="h-3.5 w-3.5 rounded-full border border-white/20"
+                        style={{ backgroundColor: stage.color ?? "#64748b" }}
+                      />
+                      <span className="font-mono text-xs text-[#94A3B8]">
+                        {stage.color ?? "-"}
                       </span>
-
-                    </td>
-
-                    <td className="px-3 py-3">
-
-                      <div className="flex justify-center">
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleOpenEdit(stage)
-                          }
-                          className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-                        >
-                          Edit
-                        </button>
-
-                      </div>
-
-                    </td>
-
-                  </tr>
-
-                )
-              )}
-
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-sm text-[#F5F7FC]">
+                    {stage.probability}%
+                  </td>
+                  <td className="px-4 py-3 font-mono text-sm text-[#94A3B8]">
+                    {stage.sla_days ? `${stage.sla_days}d` : "None"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusBadge
+                      status={stage.is_active ? "active" : "inactive"}
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <SecondaryButton
+                      size="sm"
+                      onClick={() => handleOpenEdit(stage)}
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                      Edit
+                    </SecondaryButton>
+                  </td>
+                </tr>
+              ))}
             </tbody>
-
           </table>
-
         </div>
-
       )}
 
       <CreateStageModal
@@ -252,6 +205,8 @@ export default function PipelineStageList({
           await refreshStages();
         }}
         pipelineId={pipeline.id}
+        defaultPosition={nextPosition}
+        existingPositions={existingPositions}
       />
 
       <EditStageModal
@@ -259,12 +214,15 @@ export default function PipelineStageList({
         onClose={async () => {
           setOpenEdit(false);
           setSelectedStage(null);
-
           await refreshStages();
         }}
         stage={selectedStage}
+        existingPositions={
+          selectedStage
+            ? existingPositions.filter((p) => p !== selectedStage.position)
+            : existingPositions
+        }
       />
-
     </div>
   );
 }

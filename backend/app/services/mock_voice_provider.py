@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from backend.app.services.voice_provider import VoiceProvider
 
@@ -10,6 +10,7 @@ class MockVoiceProvider(VoiceProvider):
         to_number: str,
         from_number: str,
         agent_id: int,
+        call_id: Optional[int] = None,
     ) -> Dict[str, Any]:
 
         provider_call_id = (
@@ -23,6 +24,7 @@ class MockVoiceProvider(VoiceProvider):
             "to_number": to_number,
             "from_number": from_number,
             "agent_id": agent_id,
+            "call_id": call_id,
         }
 
     def end_call(

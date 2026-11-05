@@ -9,12 +9,14 @@ from backend.app.schemas.company import (
     CompanyUpdate,
     CompanyListResponse,
 )
+from backend.app.schemas.contact import ContactListResponse
 from backend.app.services.company import (
     create_company,
     get_companies,
     update_company,
     delete_company,
 )
+from backend.app.services.contact import get_company_contacts
 from backend.app.utils.dependencies import get_current_user
 
 router = APIRouter(
@@ -56,6 +58,26 @@ def list_companies(
         page=page,
         limit=limit,
         search=search,
+    )
+
+
+@router.get(
+    "/{company_id}/contacts",
+    response_model=ContactListResponse,
+)
+def list_company_contacts(
+    company_id: int,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return get_company_contacts(
+        db=db,
+        company_id=company_id,
+        current_user=current_user,
+        page=page,
+        limit=limit,
     )
 
 

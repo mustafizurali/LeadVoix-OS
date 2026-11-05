@@ -14,10 +14,25 @@ class Lead(Base):
     last_name = Column(String, nullable=True)
     email = Column(String, nullable=True, index=True)
     phone = Column(String, nullable=True)
+    phone_normalized = Column(String(32), nullable=True, index=True)
+    phone_extension = Column(String(10), nullable=True)
     company = Column(String, nullable=True)
+    company_id = Column(
+        Integer,
+        ForeignKey("companies.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     source = Column(String, nullable=True, default="unknown")
     status = Column(String, nullable=False, default="new")
     notes = Column(Text, nullable=True)
+
+    owner_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     organization_id = Column(
         Integer,
@@ -43,11 +58,21 @@ class Lead(Base):
     )
 
     deals = relationship(
-     "Deal",
-     back_populates="lead",
+        "Deal",
+        back_populates="lead",
     )
 
     tasks = relationship(
-     "Task",
-     back_populates="lead",
-    ) 
+        "Task",
+        back_populates="lead",
+    )
+
+    owner = relationship(
+        "User",
+        foreign_keys=[owner_id],
+    )
+
+    company_rel = relationship(
+        "Company",
+        foreign_keys=[company_id],
+    )

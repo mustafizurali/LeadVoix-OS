@@ -1,5 +1,4 @@
-
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
@@ -20,24 +19,51 @@ class TwilioVoiceProvider(VoiceProvider):
         to_number: str,
         from_number: str,
         agent_id: int,
+        call_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         try:
-            call = self.client.calls.create(
-                to=to_number,
-                from_=from_number,
-                url=(
-                    f"{settings.BACKEND_BASE_URL.rstrip('/')}"
-                    "/voice/twilio/answer"
-                ),
-                method="POST",
+            caller_id = from_number or settings.TWILIO_PHONE_NUMBER
+            base_url = (settings.BACKEND_BASE_URL or "").rstrip("/")
+
+            query_parts = [f"agent_id={agent_id}"]
+            if call_id is not None:
+                query_parts.append(f"call_id={call_id}")
+            query_str = f"?{'&'.join(query_parts)}"
+
+            status_callback_url = (
+                f"{base_url}/voice/twilio/status-callback{query_str}"
             )
+
+            if "localhost" in base_url or "127.0.0.1" in base_url or not base_url:
+                call = self.client.calls.create(
+                    to=to_number,
+                    from_=caller_id,
+                    url="http://demo.twilio.com/docs/voice.xml",
+                    method="GET",
+                )
+            else:
+                call = self.client.calls.create(
+                    to=to_number,
+                    from_=caller_id,
+                    url=f"{base_url}/voice/twilio/answer{query_str}",
+                    method="POST",
+                    status_callback=status_callback_url,
+                    status_callback_event=[
+                        "initiated",
+                        "ringing",
+                        "answered",
+                        "completed",
+                    ],
+                    status_callback_method="POST",
+                )
 
             return {
                 "provider_call_id": call.sid,
                 "status": call.status,
                 "to_number": to_number,
-                "from_number": from_number,
+                "from_number": caller_id,
                 "agent_id": agent_id,
+                "call_id": call_id,
             }
 
         except TwilioRestException as exc:
@@ -65,3 +91,15 @@ class TwilioVoiceProvider(VoiceProvider):
             raise RuntimeError(
                 f"Twilio call termination failed: {exc.msg}"
             ) from exc
+
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            error_msg = getattr(exc, 'msg', str(exc))
+            print("\n>>> ASOL TWILIO ERROR:", error_msg, "\n")
+
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=502,
+                detail=f"Twilio Error: {error_msg}"
+            )

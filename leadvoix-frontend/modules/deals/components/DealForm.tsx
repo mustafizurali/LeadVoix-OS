@@ -9,10 +9,12 @@ import { usePipelines } from "../../pipelines/hooks/usePipelines";
 import { useLeads } from "../../leads/hooks/useLeads";
 import { useContacts } from "../../contacts/hooks/useContacts";
 import { useCompanies } from "../../companies/hooks/useCompanies";
+import { FormField, PrimaryButton, SecondaryButton } from "@/components/crm";
 
 interface DealFormProps {
   deal?: Deal | null;
   onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
 type DealFormState = {
@@ -49,31 +51,24 @@ const optionalNumber = (value: string) => {
   if (!value.trim()) {
     return undefined;
   }
-
   return Number(value);
 };
 
-export default function DealForm({ deal, onSuccess }: DealFormProps) {
+export default function DealForm({ deal, onSuccess, onCancel }: DealFormProps) {
   const [form, setForm] = useState<DealFormState>(() => getInitialForm(deal));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
   const { data: pipelinesData } = usePipelines();
-  const { data: leadsData } = useLeads({
-  page: 1,
-  limit: 100,
-  });
-  const { data: contactsData } = useContacts({
-  page: 1,
-  limit: 100,
-  });
-  const { data: companiesData } = useCompanies({
-  page: 1,
-  limit: 100,
-  });
+  const { data: leadsData } = useLeads({ page: 1, limit: 100 });
+  const { data: contactsData } = useContacts({ page: 1, limit: 100 });
+  const { data: companiesData } = useCompanies({ page: 1, limit: 100 });
   const { data: stagesData } = usePipelineStages(Number(form.pipeline_id));
 
   const handleChange = (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    event: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value } = event.target;
     setForm((current) => ({
@@ -127,136 +122,172 @@ export default function DealForm({ deal, onSuccess }: DealFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {error && (
+        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-400">
+          {error}
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Deal title" name="title" value={form.title} onChange={handleChange} required />
-        <Field label="Amount" name="amount" type="number" min="0" step="0.01" value={form.amount} onChange={handleChange} required />
-        <Field label="Currency" name="currency" value={form.currency} onChange={handleChange} required />
-        <label className="space-y-1.5 text-sm font-medium text-slate-700">
-          Status
-          <select name="status" value={form.status} onChange={handleChange} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
-            <option value="OPEN">Open</option>
-            <option value="WON">Won</option>
-            <option value="LOST">Lost</option>
-          </select>
-        </label>
-        <Field label="Expected close date" name="expected_close_date" type="date" value={form.expected_close_date} onChange={handleChange} />
-        <label className="space-y-1.5 text-sm font-medium text-slate-700">
-          Pipeline
-          <select
-            name="pipeline_id"
-            value={form.pipeline_id}
+        <FormField
+          label="Deal Title"
+          name="title"
+          value={form.title}
+          onChange={handleChange}
+          placeholder="e.g. Enterprise Cloud License"
+          required
+        />
+
+        <div className="grid grid-cols-2 gap-3">
+          <FormField
+            label="Amount"
+            name="amount"
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.amount}
             onChange={handleChange}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          >
-            <option value="">Select pipeline</option>
-            {pipelinesData?.items.map((pipeline) => (
-              <option key={pipeline.id} value={pipeline.id}>
-                {pipeline.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1.5 text-sm font-medium text-slate-700">
-          Stage
-          <select
-            name="stage_id"
-            value={form.stage_id}
+            required
+          />
+
+          <FormField
+            label="Currency"
+            name="currency"
+            value={form.currency}
             onChange={handleChange}
-            disabled={!form.pipeline_id}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-          >
-            <option value="">Select stage</option>
-            {stagesData?.map((stage) => (
-              <option key={stage.id} value={stage.id}>
-                {stage.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1.5 text-sm font-medium text-slate-700">
-  Lead
-  <select
-    name="lead_id"
-    value={form.lead_id}
-    onChange={handleChange}
-    className="w-full rounded-lg border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-  >
-    <option value="">Select lead</option>
+            placeholder="USD"
+            required
+          />
+        </div>
 
-    {leadsData?.items.map((lead) => (
-      <option key={lead.id} value={lead.id}>
-        {lead.first_name} {lead.last_name ?? ""} 
-      </option>
-    ))}
-   </select>
-   </label>
-        <label className="space-y-1.5 text-sm font-medium text-slate-700">
-  Contact
+        <FormField
+          label="Status"
+          name="status"
+          as="select"
+          value={form.status}
+          onChange={handleChange}
+          options={[
+            { value: "OPEN", label: "Open" },
+            { value: "WON", label: "Won" },
+            { value: "LOST", label: "Lost" },
+          ]}
+        />
 
-  <select
-    name="contact_id"
-    value={form.contact_id}
-    onChange={handleChange}
-    className="w-full rounded-lg border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-  >
-    <option value="">Select contact</option>
+        <FormField
+          label="Expected Close Date"
+          name="expected_close_date"
+          type="date"
+          value={form.expected_close_date}
+          onChange={handleChange}
+        />
 
-    {contactsData?.items.map((contact) => (
-      <option key={contact.id} value={contact.id}>
-        {contact.first_name} {contact.last_name ?? ""}
-      </option>
-    ))}
-  </select>
- </label>
-        <label className="space-y-1.5 text-sm font-medium text-slate-700">
-  Company
-  <select
-    name="company_id"
-    value={form.company_id}
-    onChange={handleChange}
-    className="w-full rounded-lg border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-  >
-    <option value="">Select company</option>
-    {companiesData?.items.map((company) => (
-      <option key={company.id} value={company.id}>
-        {company.name}
-      </option>
-    ))}
-  </select>
-</label>
-        <Field label="Owner ID" name="owner_id" type="number" min="1" value={form.owner_id} onChange={handleChange} />
+        <FormField
+          label="Pipeline"
+          name="pipeline_id"
+          as="select"
+          value={form.pipeline_id}
+          onChange={handleChange}
+          options={[
+            { value: "", label: "Select pipeline" },
+            ...(pipelinesData?.items.map((pipeline) => ({
+              value: String(pipeline.id),
+              label: pipeline.name,
+            })) ?? []),
+          ]}
+        />
+
+        <FormField
+          label="Stage"
+          name="stage_id"
+          as="select"
+          value={form.stage_id}
+          onChange={handleChange}
+          disabled={!form.pipeline_id}
+          options={[
+            { value: "", label: "Select stage" },
+            ...(stagesData?.map((stage) => ({
+              value: String(stage.id),
+              label: stage.name,
+            })) ?? []),
+          ]}
+        />
+
+        <FormField
+          label="Associated Lead"
+          name="lead_id"
+          as="select"
+          value={form.lead_id}
+          onChange={handleChange}
+          options={[
+            { value: "", label: "Select lead (optional)" },
+            ...(leadsData?.items.map((lead) => ({
+              value: String(lead.id),
+              label: `${lead.first_name} ${lead.last_name ?? ""}`.trim(),
+            })) ?? []),
+          ]}
+        />
+
+        <FormField
+          label="Associated Contact"
+          name="contact_id"
+          as="select"
+          value={form.contact_id}
+          onChange={handleChange}
+          options={[
+            { value: "", label: "Select contact (optional)" },
+            ...(contactsData?.items.map((contact) => ({
+              value: String(contact.id),
+              label: `${contact.first_name} ${contact.last_name ?? ""}`.trim(),
+            })) ?? []),
+          ]}
+        />
+
+        <FormField
+          label="Associated Company"
+          name="company_id"
+          as="select"
+          value={form.company_id}
+          onChange={handleChange}
+          options={[
+            { value: "", label: "Select company (optional)" },
+            ...(companiesData?.items.map((company) => ({
+              value: String(company.id),
+              label: company.name,
+            })) ?? []),
+          ]}
+        />
+
+        <FormField
+          label="Owner ID"
+          name="owner_id"
+          type="number"
+          min="1"
+          value={form.owner_id}
+          onChange={handleChange}
+          placeholder="User ID"
+        />
       </div>
 
-      <label className="block space-y-1.5 text-sm font-medium text-slate-700">
-        Description
-        <textarea name="description" value={form.description} onChange={handleChange} rows={4} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
-      </label>
+      <FormField
+        label="Description / Scope"
+        name="description"
+        as="textarea"
+        value={form.description}
+        onChange={handleChange}
+        rows={3}
+        placeholder="Key terms, requirements, and next steps..."
+      />
 
-      {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
-
-      <button type="submit" disabled={isSubmitting} className="rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
-        {isSubmitting ? (deal ? "Updating..." : "Creating...") : deal ? "Update Deal" : "Create Deal"}
-      </button>
+      <div className="flex items-center justify-end gap-3 border-t border-[#273449] pt-4">
+        {onCancel && (
+          <SecondaryButton type="button" onClick={onCancel} disabled={isSubmitting}>
+            Cancel
+          </SecondaryButton>
+        )}
+        <PrimaryButton type="submit" loading={isSubmitting}>
+          {deal ? "Update Deal" : "Create Deal"}
+        </PrimaryButton>
+      </div>
     </form>
-  );
-}
-
-interface FieldProps {
-  label: string;
-  name: keyof DealFormState;
-  value: string;
-  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  type?: string;
-  min?: string;
-  step?: string;
-  required?: boolean;
-}
-
-function Field({ label, name, value, onChange, type = "text", min, step, required = false }: FieldProps) {
-  return (
-    <label className="space-y-1.5 text-sm font-medium text-slate-700">
-      {label}
-      <input name={name} type={type} min={min} step={step} required={required} value={value} onChange={onChange} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
-    </label>
   );
 }

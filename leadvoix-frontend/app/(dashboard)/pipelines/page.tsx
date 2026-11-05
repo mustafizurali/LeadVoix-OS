@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 
 import DashboardLayout from "@/modules/dashboard/components/DashboardLayout";
 import CreatePipelineModal from "@/modules/pipelines/components/CreatePipelineModal";
@@ -10,6 +11,12 @@ import PipelineTable from "@/modules/pipelines/components/PipelineTable";
 import PipelineToolbar from "@/modules/pipelines/components/PipelineToolbar";
 import { deletePipeline } from "@/modules/pipelines/api/pipelineApi";
 import type { Pipeline } from "@/modules/pipelines/types/pipeline.types";
+import {
+  PageContainer,
+  PageHeader,
+  PrimaryButton,
+  ConfirmationDialog,
+} from "@/components/crm";
 
 export default function PipelinesPage() {
   const queryClient = useQueryClient();
@@ -18,8 +25,9 @@ export default function PipelinesPage() {
   const [openEdit, setOpenEdit] = useState(false);
   const [search, setSearch] = useState("");
 
-  const [selectedPipeline, setSelectedPipeline] =
-    useState<Pipeline | null>(null);
+  const [selectedPipeline, setSelectedPipeline] = useState<Pipeline | null>(null);
+  const [pipelineToDelete, setPipelineToDelete] = useState<Pipeline | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const handleEditPipeline = (pipeline: Pipeline) => {
     setSelectedPipeline(pipeline);
@@ -31,64 +39,71 @@ export default function PipelinesPage() {
     setSelectedPipeline(null);
   };
 
-  const handleDeletePipeline = async (pipeline: Pipeline) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${pipeline.name}"?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
+  const handleConfirmDelete = async () => {
+    if (!pipelineToDelete) return;
 
     try {
-      await deletePipeline(pipeline.id);
-
+      setDeleteLoading(true);
+      await deletePipeline(pipelineToDelete.id);
       await queryClient.invalidateQueries({
         queryKey: ["pipelines"],
       });
+      setPipelineToDelete(null);
     } catch (error) {
       console.error("Failed to delete pipeline:", error);
-
-      alert("Failed to delete pipeline");
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            Pipelines
-          </h1>
-
-          <p className="mt-2 text-slate-500">
-            Manage your sales pipelines and stages.
-          </p>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Pipelines"
+          subtitle="Manage sales pipelines, deal progression workflows, and qualification stages."
+          badge="CRM"
+          action={
+            <PrimaryButton onClick={() => setOpenCreate(true)}>
+              <Plus className="h-4 w-4" />
+              New Pipeline
+            </PrimaryButton>
+          }
+        />
 
         <PipelineToolbar
           search={search}
           onSearchChange={setSearch}
-          onCreatePipeline={() => setOpenCreate(true)}
         />
 
         <PipelineTable
           search={search}
           onEditPipeline={handleEditPipeline}
-          onDeletePipeline={handleDeletePipeline}
+          onDeletePipeline={(pipeline) => setPipelineToDelete(pipeline)}
         />
-      </div>
 
-      <CreatePipelineModal
-        open={openCreate}
-        onClose={() => setOpenCreate(false)}
-      />
+        <CreatePipelineModal
+          open={openCreate}
+          onClose={() => setOpenCreate(false)}
+        />
 
-      <EditPipelineModal
-        open={openEdit}
-        onClose={handleCloseEdit}
-        pipeline={selectedPipeline}
-      />
+        <EditPipelineModal
+          open={openEdit}
+          onClose={handleCloseEdit}
+          pipeline={selectedPipeline}
+        />
+
+        <ConfirmationDialog
+          isOpen={Boolean(pipelineToDelete)}
+          onClose={() => setPipelineToDelete(null)}
+          onConfirm={handleConfirmDelete}
+          title="Delete Pipeline"
+          message={`Are you sure you want to delete pipeline "${pipelineToDelete?.name}"? All associated stages and configuration will be affected.`}
+          confirmLabel="Delete Pipeline"
+          variant="danger"
+          loading={deleteLoading}
+        />
+      </PageContainer>
     </DashboardLayout>
   );
 }
