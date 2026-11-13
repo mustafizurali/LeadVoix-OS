@@ -172,9 +172,15 @@ def upgrade() -> None:
                     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA jarvis TO jarvis_operator;
                 END IF;
 
-                -- Read-only role access
+                -- Read-only role access: strictly audit_logs only (no operational queue access)
                 IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'jarvis_business_reader') THEN
-                    GRANT SELECT ON ALL TABLES IN SCHEMA jarvis TO jarvis_business_reader;
+                    GRANT SELECT ON TABLE jarvis.audit_logs TO jarvis_business_reader;
+                    REVOKE SELECT ON TABLE
+                        jarvis.jarvis_tasks,
+                        jarvis.dispatch_idempotency,
+                        jarvis.task_attempts,
+                        jarvis.approval_records
+                    FROM jarvis_business_reader;
                 END IF;
             END $$;
         """)

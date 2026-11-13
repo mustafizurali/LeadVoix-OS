@@ -129,20 +129,21 @@ REVOKE CREATE ON SCHEMA jarvis FROM jarvis_operator;
 -- 5. Safe Default Privileges for Tables Created by Migration Owner
 -- Security Inversion: Future tables default to SELECT, INSERT ONLY for jarvis_operator.
 -- This ensures jarvis.audit_logs NEVER inherits UPDATE or DELETE privileges by default.
+-- jarvis_business_reader receives NO default privileges on future jarvis tables (least-privilege).
 ALTER DEFAULT PRIVILEGES FOR ROLE leadvoix_migrator IN SCHEMA jarvis 
     GRANT SELECT, INSERT ON TABLES TO jarvis_operator;
 ALTER DEFAULT PRIVILEGES FOR ROLE leadvoix_migrator IN SCHEMA jarvis 
     GRANT USAGE, SELECT ON SEQUENCES TO jarvis_operator;
-ALTER DEFAULT PRIVILEGES FOR ROLE leadvoix_migrator IN SCHEMA jarvis 
-    GRANT SELECT ON TABLES TO jarvis_business_reader;
+ALTER DEFAULT PRIVILEGES FOR ROLE leadvoix_migrator IN SCHEMA jarvis
+    REVOKE SELECT ON TABLES FROM jarvis_business_reader;
 
 -- Fallback default privileges if migration runs as postgres / supabase_admin:
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA jarvis 
     GRANT SELECT, INSERT ON TABLES TO jarvis_operator;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA jarvis 
     GRANT USAGE, SELECT ON SEQUENCES TO jarvis_operator;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA jarvis 
-    GRANT SELECT ON TABLES TO jarvis_business_reader;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA jarvis
+    REVOKE SELECT ON TABLES FROM jarvis_business_reader;
 
 COMMIT;
 
@@ -186,8 +187,16 @@ REVOKE UPDATE, DELETE, TRUNCATE ON TABLE jarvis.audit_logs FROM jarvis_operator;
 -- 3. Sequences:
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA jarvis TO jarvis_operator;
 
--- 4. Read-only access for jarvis_business_reader across all jarvis tables:
-GRANT SELECT ON ALL TABLES IN SCHEMA jarvis TO jarvis_business_reader;
+-- 4. Minimal Read-Only access for jarvis_business_reader (audit_logs telemetry only):
+GRANT SELECT ON TABLE jarvis.audit_logs TO jarvis_business_reader;
+
+-- Explicitly revoke operational queue tables (remediates existing staging/prod environments):
+REVOKE SELECT ON TABLE
+    jarvis.jarvis_tasks,
+    jarvis.dispatch_idempotency,
+    jarvis.task_attempts,
+    jarvis.approval_records
+FROM jarvis_business_reader;
 
 -- 5. Audit Log Database-Level Append-Only Trigger
 CREATE OR REPLACE FUNCTION jarvis.prevent_audit_log_mutation()
