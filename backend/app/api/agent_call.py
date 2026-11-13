@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from backend.app.core.config import settings
 from backend.app.db.database import get_db
 from backend.app.models.agent import Agent
+from backend.app.models.agent_call import AgentCall
 from backend.app.models.user import User
 from backend.app.schemas.agent_call import (
     AgentCallCreate,

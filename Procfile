@@ -1,2 +1,3 @@
 web: uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 worker: python -m backend.app.workers.call_worker
+jarvis: python -m backend.app.workers.jarvis_worker

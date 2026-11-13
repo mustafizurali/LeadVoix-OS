@@ -13,6 +13,7 @@ from backend.app.schemas.user import (
 from backend.app.services.user import (
     create_user,
     authenticate_user,
+    canonicalize_email,
 )
 from backend.app.utils.security import create_access_token
 
@@ -51,7 +52,8 @@ def login(
     db: Session = Depends(get_db),
 ):
     client_ip = request.client.host if request.client else "unknown"
-    rate_limit_key = f"{client_ip}:{user.email.lower().strip()}"
+    canonical_email = canonicalize_email(user.email)
+    rate_limit_key = f"{client_ip}:{canonical_email}"
 
     current_time = time.time()
 
@@ -71,7 +73,7 @@ def login(
 
     db_user = authenticate_user(
         db,
-        user.email,
+        canonical_email,
         user.password,
     )
 
@@ -88,8 +90,7 @@ def login(
 
     token = create_access_token(
         {
-            "sub": db_user.email,
-            "user_id": db_user.id,
+            "sub": str(db_user.id),
             "role": db_user.role,
         }
     )

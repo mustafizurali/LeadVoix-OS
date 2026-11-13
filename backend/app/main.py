@@ -83,6 +83,10 @@ app.include_router(voice.router)
 # Demo Request
 app.include_router(demo_request.router)
 
+# JARVIS Business Digest
+from backend.app.api import jarvis
+app.include_router(jarvis.router)
+
 
 @app.get("/")
 def root():

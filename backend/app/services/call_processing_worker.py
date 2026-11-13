@@ -818,10 +818,6 @@ def resolve_task_creator_id(
     if org_user:
         return org_user[0]
 
-    any_user = db.query(User.id).order_by(User.id.asc()).first()
-    if any_user:
-        return any_user[0]
-
     # Auto-provision system AI user for the organization if no user exists in DB
     sys_user = User(
         name="System AI",

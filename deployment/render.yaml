@@ -48,3 +48,35 @@ services:
         sync: false
       - key: WORKER_POLL_INTERVAL_SECONDS
         value: "5.0"
+
+  # LeadVoix Business JARVIS 24/7 Autonomous Background Worker Service
+  - type: worker
+    name: leadvoix-jarvis-worker
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: python -m backend.app.workers.jarvis_worker process
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.15
+      - key: ENABLE_JARVIS
+        value: "false"
+      - key: JARVIS_DATABASE_URL
+        sync: false
+      - key: JARVIS_OPERATIONAL_DATABASE_URL
+        sync: false
+      - key: MIGRATION_DATABASE_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: JARVIS_INTERNAL_ORG_ID
+        value: "1"
+      - key: JARVIS_KILL_SWITCH
+        value: "false"
+      - key: JARVIS_TIMEZONE
+        value: Asia/Kolkata
+      - key: JARVIS_POLL_INTERVAL_SECONDS
+        value: "5.0"
+      - key: JARVIS_HEARTBEAT_INTERVAL_SECONDS
+        value: "30.0"

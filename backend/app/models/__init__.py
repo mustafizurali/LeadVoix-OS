@@ -19,3 +19,10 @@ from .subscription import Subscription
 from .call_processing_job import CallProcessingJob
 from .deal_stage_history import DealStageHistory
 from .activity import Activity
+from .jarvis import (
+    JarvisTask,
+    JarvisDispatchIdempotency,
+    JarvisTaskAttempt,
+    JarvisApprovalRecord,
+    JarvisAuditLog,
+)

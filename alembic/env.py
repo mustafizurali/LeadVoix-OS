@@ -1,4 +1,5 @@
 
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -9,10 +10,14 @@ from alembic import context
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 from backend.app.models import *
-from backend.app.db.database import Base
+from backend.app.db.database import Base, get_migration_database_url
 from backend.app.core.config import settings
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
+# Resolve migration database URL: prefers MIGRATION_DATABASE_URL (leadvoix_migrator role),
+# falling back to DATABASE_URL in development.
+migration_url = get_migration_database_url()
+config.set_main_option("sqlalchemy.url", migration_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -31,6 +36,36 @@ target_metadata = Base.metadata
 # ... etc.
 
 
+def get_context_configure_kwargs(connection=None, url=None) -> dict:
+    """
+    Constructs context.configure arguments.
+    Enforces include_schemas=True.
+    When running against PostgreSQL, explicitly pins alembic_version table
+    to schema 'public' so that the dedicated leadvoix_migrator role can manage
+    the version history without requiring schema-wide DDL rights on public.
+    """
+    kwargs = {
+        "target_metadata": target_metadata,
+        "include_schemas": True,
+    }
+    is_pg = False
+    if connection is not None:
+        kwargs["connection"] = connection
+        dialect = getattr(connection, "dialect", None)
+        is_pg = getattr(dialect, "name", "") == "postgresql"
+    elif url is not None:
+        kwargs["url"] = url
+        kwargs["literal_binds"] = True
+        kwargs["dialect_opts"] = {"paramstyle": "named"}
+        is_pg = "postgres" in str(url).lower()
+
+    if is_pg:
+        kwargs["version_table"] = "alembic_version"
+        kwargs["version_table_schema"] = "public"
+
+    return kwargs
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -43,13 +78,9 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
-    context.configure(
-        url=url,
-        target_metadata=target_metadata,
-        literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
-    )
+    url = config.get_main_option("sqlalchemy.url") or get_migration_database_url()
+    configure_kwargs = get_context_configure_kwargs(url=url)
+    context.configure(**configure_kwargs)
 
     with context.begin_transaction():
         context.run_migrations()
@@ -62,16 +93,18 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    section = config.get_section(config.config_ini_section, {}) or {}
+    section["sqlalchemy.url"] = get_migration_database_url()
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        configure_kwargs = get_context_configure_kwargs(connection=connection)
+        context.configure(**configure_kwargs)
 
         with context.begin_transaction():
             context.run_migrations()

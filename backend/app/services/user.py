@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend.app.models.organization import Organization
 
@@ -10,14 +11,24 @@ from backend.app.utils.security import (
 )
 
 
-def create_user(db: Session, user: UserCreate):
-    existing_user = (
+def canonicalize_email(email: str) -> str:
+    return str(email).strip().lower()
+
+
+def get_users_by_canonical_email(db: Session, email: str):
+    canonical_email = canonicalize_email(email)
+    return (
         db.query(User)
-        .filter(User.email == user.email)
-        .first()
+        .filter(func.lower(func.trim(User.email)) == canonical_email)
+        .all()
     )
 
-    if existing_user:
+
+def create_user(db: Session, user: UserCreate):
+    canonical_email = canonicalize_email(user.email)
+    existing_users = get_users_by_canonical_email(db, canonical_email)
+
+    if existing_users:
         raise HTTPException(
             status_code=400,
             detail="Email already registered",
@@ -26,7 +37,7 @@ def create_user(db: Session, user: UserCreate):
     # Create user first
     db_user = User(
         name=user.name,
-        email=user.email,
+        email=canonical_email,
         hashed_password=hash_password(user.password),
         role="owner",
     )
@@ -58,14 +69,12 @@ def authenticate_user(
     email: str,
     password: str,
 ):
-    user = (
-        db.query(User)
-        .filter(User.email == email)
-        .first()
-    )
+    users = get_users_by_canonical_email(db, email)
 
-    if not user:
+    if len(users) != 1:
         return None
+
+    user = users[0]
 
     result = verify_password(
         password,

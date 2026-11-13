@@ -37,17 +37,31 @@ def get_current_user(
             algorithms=[settings.ALGORITHM],
         )
 
-        email = payload.get("sub")
+        subject = payload.get("sub")
 
-        # JWT subject must exist and be a non-empty string
-        if not isinstance(email, str) or not email.strip():
+        # JWT subject must be a canonical positive integer user ID.
+        if not isinstance(subject, str) or not subject.isdecimal():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        email = email.strip().lower()
+        try:
+            user_id = int(subject)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if str(user_id) != subject or user_id <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     except JWTError:
         logger.warning("JWT validation failed")
@@ -60,7 +74,7 @@ def get_current_user(
 
     user = (
         db.query(User)
-        .filter(User.email == email)
+        .filter(User.id == user_id)
         .first()
     )
 
