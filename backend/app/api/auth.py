@@ -1,6 +1,8 @@
+import logging
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from backend.app.db.database import get_db
@@ -22,6 +24,8 @@ router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
 )
+
+logger = logging.getLogger("leadvoix.auth")
 
 
 # Basic login rate limiting
@@ -71,11 +75,20 @@ def login(
             detail="Too many login attempts. Please try again later.",
         )
 
-    db_user = authenticate_user(
-        db,
-        canonical_email,
-        user.password,
-    )
+    try:
+        db_user = authenticate_user(
+            db,
+            canonical_email,
+            user.password,
+        )
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        logger.error("Authentication database connectivity error for %s: %s", canonical_email, exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Authentication service temporarily unavailable. Please try again shortly.",
+        )
 
     if not db_user:
         attempts.append(current_time)

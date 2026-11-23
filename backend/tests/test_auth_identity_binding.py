@@ -63,6 +63,26 @@ class AuthIdentityBindingTests(unittest.TestCase):
         self.assertEqual(create_token.call_args.args[0]["sub"], "42")
         self.assertNotIn("user_id", create_token.call_args.args[0])
 
+    def test_login_returns_503_when_database_connection_fails(self):
+        request = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"))
+        credentials = SimpleNamespace(email="user@example.com", password="password")
+        from sqlalchemy.exc import OperationalError
+
+        with patch.object(auth, "authenticate_user", side_effect=OperationalError("conn", {}, Exception("db down"))):
+            with self.assertRaises(HTTPException) as exc_info:
+                auth.login(request, credentials, MagicMock())
+
+        self.assertEqual(exc_info.exception.status_code, 503)
+        self.assertIn("temporarily unavailable", exc_info.exception.detail)
+
+    def test_login_propagates_unrelated_programming_errors(self):
+        request = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"))
+        credentials = SimpleNamespace(email="user@example.com", password="password")
+
+        with patch.object(auth, "authenticate_user", side_effect=TypeError("unexpected type error")):
+            with self.assertRaises(TypeError):
+                auth.login(request, credentials, MagicMock())
+
     def test_get_current_user_resolves_id_subject_to_its_database_organization(self):
         account = SimpleNamespace(id=42, organization_id=7)
         db = MagicMock()

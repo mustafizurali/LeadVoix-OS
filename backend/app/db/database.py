@@ -4,7 +4,26 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 from backend.app.core.config import settings
 
-engine = create_engine(settings.DATABASE_URL)
+def get_db_url() -> str:
+    url = getattr(settings, "DATABASE_URL", "")
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    return url
+
+
+_db_url = get_db_url()
+_connect_args = {}
+if "pg8000" in _db_url:
+    _connect_args["timeout"] = 10
+elif "postgresql" in _db_url:
+    _connect_args["connect_timeout"] = 10
+
+engine = create_engine(
+    _db_url,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    connect_args=_connect_args,
+)
 
 SessionLocal = sessionmaker(
     autocommit=False,

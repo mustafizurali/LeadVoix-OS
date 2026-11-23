@@ -5,6 +5,13 @@ export function getErrorMessage(
   fallback = "Something went wrong"
 ): string {
   if (axios.isAxiosError(error)) {
+    if (
+      error.code === "ECONNABORTED" ||
+      (typeof error.message === "string" && error.message.toLowerCase().includes("timeout"))
+    ) {
+      return "The server took too long to respond. Please check your connection and try again.";
+    }
+
     const detail = error.response?.data?.detail;
     if (typeof detail === "string" && detail.trim().length > 0) {
       return detail;
